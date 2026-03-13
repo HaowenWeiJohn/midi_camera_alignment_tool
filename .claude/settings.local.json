@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import pretty_midi; print\\(pretty_midi.__file__\\)\")",
+      "Bash(python -c \"import mido; print\\(mido.__file__\\)\")",
+      "Bash(python -c \"import pysampled; print\\(pysampled.__file__\\)\")"
+    ]
+  }
+}
