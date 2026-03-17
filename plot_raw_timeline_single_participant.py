@@ -12,7 +12,6 @@ overhead_camera_folder_root = r"\\192.168.1.104\home\piano\data\011\overhead cam
 # Discover files (sorted for correct XML/MP4 pairing)
 disklavier_midi_files = sorted([f for f in os.listdir(disklavier_folder_root) if f.endswith(".mid")])
 overhead_camera_mp4_files = sorted([f for f in os.listdir(overhead_camera_folder_root) if f.endswith(".MP4")])
-overhead_camera_xml_files = sorted([f for f in os.listdir(overhead_camera_folder_root) if f.endswith(".XML")])
 
 # Collect MIDI time ranges
 midi_time_ranges = []
@@ -24,7 +23,8 @@ for f in disklavier_midi_files:
 
 # Collect overhead camera time ranges
 camera_time_ranges = []
-for xml_file, mp4_file in zip(overhead_camera_xml_files, overhead_camera_mp4_files):
+for mp4_file in overhead_camera_mp4_files:
+    xml_file = mp4_file.replace(".MP4", "M01.XML")
     xml_path = os.path.join(overhead_camera_folder_root, xml_file)
     mp4_path = os.path.join(overhead_camera_folder_root, mp4_file)
     cam = overhead_camera.OverheadCamera(xml_path, mp4_path)

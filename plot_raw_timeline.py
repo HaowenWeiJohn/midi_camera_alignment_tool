@@ -7,7 +7,10 @@ import midi
 import overhead_camera
 
 participants_root = r"\\192.168.1.104\home\piano\data"
-output_folder = r"\\192.168.1.104\home\piano\data\overhead_camera\midi_overheadcam_sync\raw_sync_plots"
+output_folder = os.path.join(
+    r"\\192.168.1.104\home\piano\data\overhead_camera\midi_overheadcam_sync",
+    f"raw_sync_plots-{datetime.now().strftime('%m_%d_%Y')}"
+)
 os.makedirs(output_folder, exist_ok=True)
 
 for participant_id in range(1, 62):
@@ -27,13 +30,12 @@ for participant_id in range(1, 62):
         # Discover files (sorted for correct XML/MP4 pairing)
         disklavier_midi_files = sorted([f for f in os.listdir(disklavier_folder) if f.endswith(".mid")])
         overhead_camera_mp4_files = sorted([f for f in os.listdir(overhead_camera_folder) if f.endswith(".MP4")])
-        overhead_camera_xml_files = sorted([f for f in os.listdir(overhead_camera_folder) if f.endswith(".XML")])
 
         if not disklavier_midi_files:
             print(f"[{pid}] Skipping — no .mid files found")
             continue
-        if not overhead_camera_mp4_files or not overhead_camera_xml_files:
-            print(f"[{pid}] Skipping — no .MP4 or .XML files found")
+        if not overhead_camera_mp4_files:
+            print(f"[{pid}] Skipping — no .MP4 files found")
             continue
 
         # Collect MIDI time ranges
@@ -46,7 +48,8 @@ for participant_id in range(1, 62):
 
         # Collect overhead camera time ranges
         camera_time_ranges = []
-        for xml_file, mp4_file in zip(overhead_camera_xml_files, overhead_camera_mp4_files):
+        for mp4_file in overhead_camera_mp4_files:
+            xml_file = mp4_file.replace(".MP4", "M01.XML")
             xml_path = os.path.join(overhead_camera_folder, xml_file)
             mp4_path = os.path.join(overhead_camera_folder, mp4_file)
             cam = overhead_camera.OverheadCamera(xml_path, mp4_path)
