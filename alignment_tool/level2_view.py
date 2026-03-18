@@ -1,10 +1,12 @@
 """Level 2: Alignment Detail View — side-by-side MIDI + camera panels."""
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
+from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel,
     QPushButton, QComboBox, QLineEdit, QMessageBox, QInputDialog,
+    QShortcut,
 )
 
 from alignment_tool.models import AlignmentState, MidiFileInfo, CameraFileInfo, Anchor
@@ -121,6 +123,9 @@ class Level2View(QWidget):
         self._midi_panel.position_changed.connect(self._on_midi_position_changed)
         self._camera_panel.position_changed.connect(self._on_camera_position_changed)
 
+        # Keyboard shortcuts (work regardless of which child widget has focus)
+        self._setup_shortcuts()
+
     def load_pair(self, state: AlignmentState, midi_index: int, camera_index: int):
         """Load a MIDI + camera pair for alignment."""
         self._state = state
@@ -183,9 +188,11 @@ class Level2View(QWidget):
         self._mode_btn.setText(f"Mode: {'Locked' if self._locked else 'Independent'}")
         self._update_status_line()
 
-        # Anchor lock rule: if locked and active anchor, switch MIDI to anchor's file
         if self._locked:
+            # Anchor lock rule: if active anchor, switch MIDI to anchor's file
             self._apply_anchor_lock_rule()
+            # Sync panels when entering locked mode (even without anchor)
+            self._sync_from_camera()
 
     def _apply_anchor_lock_rule(self):
         """When locked + anchor active, auto-switch MIDI file to anchor's reference."""
@@ -195,14 +202,28 @@ class Level2View(QWidget):
         anchor = cf.get_active_anchor()
         if anchor is not None and self._locked:
             # Find MIDI file index matching anchor's midi_filename
+            target_index = None
             for i, mf in enumerate(self._state.midi_files):
                 if mf.filename == anchor.midi_filename:
-                    self._midi_combo.blockSignals(True)
-                    self._midi_combo.setCurrentIndex(i)
-                    self._midi_combo.setEnabled(False)
-                    self._midi_combo.blockSignals(False)
-                    self._load_midi_file(i)
+                    target_index = i
                     break
+            if target_index is None:
+                return
+
+            # Always lock the combo to the anchor's file
+            self._midi_combo.blockSignals(True)
+            self._midi_combo.setCurrentIndex(target_index)
+            self._midi_combo.setEnabled(False)
+            self._midi_combo.blockSignals(False)
+
+            # Only reload if switching to a different MIDI file
+            if target_index != self._midi_index:
+                self._load_midi_file(target_index)
+                # Navigate to the anchor's position in the new file
+                self._midi_panel.set_position(anchor.midi_timestamp_seconds)
+
+            # Sync panels based on current camera position
+            self._sync_from_camera()
         else:
             self._midi_combo.setEnabled(True)
 
@@ -260,6 +281,20 @@ class Level2View(QWidget):
 
         camera_unix = engine.camera_frame_to_unix(frame, cf)
         self._overlap.set_playhead(camera_unix + eff)
+
+    def _sync_from_camera(self):
+        """Sync MIDI panel to current camera position using effective shift."""
+        if not self._locked or self._state is None:
+            return
+        frame = self._camera_panel.current_frame
+        self._on_camera_position_changed(frame)
+
+    def _sync_from_midi(self):
+        """Sync camera panel to current MIDI position using effective shift."""
+        if not self._locked or self._state is None:
+            return
+        t = self._midi_panel.current_time
+        self._on_midi_position_changed(t)
 
     # --- Markers ---
 
@@ -388,38 +423,44 @@ class Level2View(QWidget):
         eff = self._get_effective_shift()
         self._overlap.set_clips(mf, cf, eff)
 
-    # --- Keyboard ---
+    # --- Keyboard shortcuts ---
 
-    def keyPressEvent(self, event):
-        key = event.key()
-        shift = event.modifiers() & Qt.ShiftModifier
+    def _setup_shortcuts(self):
+        """Create QShortcut objects that work regardless of child widget focus."""
+        ctx = Qt.WidgetWithChildrenShortcut
 
-        if key == Qt.Key_M:
-            self._mark_midi()
-        elif key == Qt.Key_C:
-            self._mark_camera()
-        elif key == Qt.Key_L:
-            self._mode_btn.click()
-        elif key == Qt.Key_A:
-            if self._midi_marker is not None and self._camera_marker is not None:
-                self._on_add_anchor()
-        elif key == Qt.Key_Left:
-            if self._active_panel == "midi":
-                self._midi_panel.step_ticks(-100 if shift else -1)
-            else:
-                self._camera_panel.step(-10 if shift else -1)
-        elif key == Qt.Key_Right:
-            if self._active_panel == "midi":
-                self._midi_panel.step_ticks(100 if shift else 1)
-            else:
-                self._camera_panel.step(10 if shift else 1)
-        elif key == Qt.Key_Tab:
-            self._active_panel = "camera" if self._active_panel == "midi" else "midi"
-            self._update_panel_focus_indicator()
-        elif key == Qt.Key_Escape:
-            self.back_requested.emit()
+        def shortcut(key, slot):
+            s = QShortcut(QKeySequence(key), self)
+            s.setContext(ctx)
+            s.activated.connect(slot)
+            return s
+
+        shortcut(Qt.Key_M, self._mark_midi)
+        shortcut(Qt.Key_C, self._mark_camera)
+        shortcut(Qt.Key_L, lambda: self._mode_btn.click())
+        shortcut(Qt.Key_A, self._shortcut_add_anchor)
+        shortcut(Qt.Key_Left, lambda: self._step_active(-1, False))
+        shortcut(Qt.Key_Right, lambda: self._step_active(1, False))
+        shortcut(Qt.SHIFT + Qt.Key_Left, lambda: self._step_active(-1, True))
+        shortcut(Qt.SHIFT + Qt.Key_Right, lambda: self._step_active(1, True))
+        shortcut(Qt.Key_Tab, self._switch_active_panel)
+        shortcut(Qt.Key_Escape, self.back_requested.emit)
+
+    def _shortcut_add_anchor(self):
+        if self._midi_marker is not None and self._camera_marker is not None:
+            self._on_add_anchor()
+
+    def _step_active(self, direction: int, large: bool):
+        if self._active_panel == "midi":
+            ticks = (100 if large else 1) * direction
+            self._midi_panel.step_ticks(ticks)
         else:
-            super().keyPressEvent(event)
+            frames = (10 if large else 1) * direction
+            self._camera_panel.step(frames)
+
+    def _switch_active_panel(self):
+        self._active_panel = "camera" if self._active_panel == "midi" else "midi"
+        self._update_panel_focus_indicator()
 
     def _update_panel_focus_indicator(self):
         midi_style = "border: 2px solid #4488ff;" if self._active_panel == "midi" else "border: 1px solid #555;"
@@ -441,7 +482,6 @@ class Level2View(QWidget):
         """Brief visual flash to confirm marker was set."""
         original = label.styleSheet()
         label.setStyleSheet("background-color: #446; color: white; font-weight: bold; padding: 2px;")
-        from PyQt5.QtCore import QTimer
         QTimer.singleShot(400, lambda: label.setStyleSheet(original))
 
     def cleanup(self):

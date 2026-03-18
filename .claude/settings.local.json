@@ -15,7 +15,12 @@
       "Bash(python -c \"import PyQt5; print\\(PyQt5.__file__\\)\")",
       "Bash(python -c \"from PyQt5.QtCore import PYQT_VERSION_STR; print\\(''PyQt5'', PYQT_VERSION_STR\\)\")",
       "Bash(taskkill //PID 57424 //F)",
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "Bash(python -c \"from alignment_tool.level2_view import Level2View; print\\(''OK''\\)\")",
+      "Bash(git rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
