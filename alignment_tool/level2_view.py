@@ -68,6 +68,12 @@ class Level2View(QWidget):
         top_bar.addStretch()
         layout.addLayout(top_bar)
 
+        # Status line: mode + active panel + hints
+        self._status_line = QLabel()
+        self._status_line.setStyleSheet("color: #888; font-size: 11px; padding: 2px 4px;")
+        layout.addWidget(self._status_line)
+        self._update_status_line()
+
         # Overlap indicator
         self._overlap = OverlapIndicatorWidget()
         layout.addWidget(self._overlap)
@@ -90,11 +96,13 @@ class Level2View(QWidget):
 
         self._compute_shift_btn = QPushButton("Compute Global Shift")
         self._compute_shift_btn.setEnabled(False)
+        self._compute_shift_btn.setToolTip("Set markers first: press M on MIDI panel, C on camera panel")
         self._compute_shift_btn.clicked.connect(self._on_compute_shift)
         marker_layout.addWidget(self._compute_shift_btn)
 
         self._add_anchor_btn = QPushButton("Add Anchor (A)")
         self._add_anchor_btn.setEnabled(False)
+        self._add_anchor_btn.setToolTip("Set markers first: press M on MIDI panel, C on camera panel")
         self._add_anchor_btn.clicked.connect(self._on_add_anchor)
         marker_layout.addWidget(self._add_anchor_btn)
 
@@ -173,6 +181,7 @@ class Level2View(QWidget):
     def _toggle_mode(self):
         self._locked = self._mode_btn.isChecked()
         self._mode_btn.setText(f"Mode: {'Locked' if self._locked else 'Independent'}")
+        self._update_status_line()
 
         # Anchor lock rule: if locked and active anchor, switch MIDI to anchor's file
         if self._locked:
@@ -260,10 +269,12 @@ class Level2View(QWidget):
         mf = self._state.midi_files[self._midi_index]
         self._midi_marker = (mf.filename, self._midi_panel.current_time)
         self._update_marker_ui()
+        self._flash_label(self._midi_marker_label)
 
     def _mark_camera(self):
         self._camera_marker = self._camera_panel.current_frame
         self._update_marker_ui()
+        self._flash_label(self._camera_marker_label)
 
     def _update_marker_ui(self):
         if self._midi_marker:
@@ -285,6 +296,12 @@ class Level2View(QWidget):
         both_set = self._midi_marker is not None and self._camera_marker is not None
         self._compute_shift_btn.setEnabled(both_set)
         self._add_anchor_btn.setEnabled(both_set)
+        if both_set:
+            self._compute_shift_btn.setToolTip("")
+            self._add_anchor_btn.setToolTip("")
+        else:
+            self._compute_shift_btn.setToolTip("Set markers first: press M on MIDI panel, C on camera panel")
+            self._add_anchor_btn.setToolTip("Set markers first: press M on MIDI panel, C on camera panel")
 
     def _on_compute_shift(self):
         if self._state is None or self._midi_marker is None or self._camera_marker is None:
@@ -409,6 +426,23 @@ class Level2View(QWidget):
         cam_style = "border: 2px solid #ff8844;" if self._active_panel == "camera" else "border: 1px solid #555;"
         self._midi_panel.setStyleSheet(midi_style)
         self._camera_panel.setStyleSheet(cam_style)
+        self._update_status_line()
+
+    def _update_status_line(self):
+        mode = "Locked" if self._locked else "Independent"
+        active = "MIDI" if self._active_panel == "midi" else "Camera"
+        self._status_line.setText(
+            f"{mode} Mode  |  Active panel: {active}  |  "
+            f"Arrows: navigate  |  Tab: switch panel  |  L: toggle mode  |  "
+            f"M: mark MIDI  |  C: mark camera  |  A: add anchor"
+        )
+
+    def _flash_label(self, label: QLabel):
+        """Brief visual flash to confirm marker was set."""
+        original = label.styleSheet()
+        label.setStyleSheet("background-color: #446; color: white; font-weight: bold; padding: 2px;")
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(400, lambda: label.setStyleSheet(original))
 
     def cleanup(self):
         self._camera_panel.cleanup()
