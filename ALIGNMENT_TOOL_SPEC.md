@@ -130,9 +130,13 @@ Global shift (Phase 1) and anchors (Phase 2) follow a **strict ordering**: ancho
 - **Framework:** PyQt (Qt for Python)
 - **Code location:** All tool source code lives in the `alignment_tool/` directory within this repository
 
+### Participant Loading
+
+The operator loads a participant by selecting a **participant folder** via a folder picker dialog. The tool scans the selected folder for `disklavier/` and `overhead camera/` subdirectories, discovering `.mid` files and `.MP4`/`.XML` file pairs automatically. No fixed data root path is assumed.
+
 ### GUI Structure — Two Levels
 
-The tool has a **two-level GUI**. Level 1 is the overview; Level 2 is the detail/alignment view.
+The tool has a **two-level GUI**. Level 1 is the overview; Level 2 is the detail/alignment view. Both levels are displayed in a **single window** using a stacked layout: Level 2 replaces Level 1 content when drilling into a pair, and a **back button** returns to Level 1.
 
 ---
 
@@ -146,6 +150,7 @@ This is the first screen the operator sees after loading a participant. It shows
 - The time axis reflects the **current alignment state**: camera bars are positioned using `raw_start + global_shift + anchor_shift` (where `anchor_shift` is derived from the active anchor if one exists, otherwise 0), so as shifts are applied, the camera bars visually move into alignment with the MIDI bars
 - The **global shift** input field and apply button are accessible here, since it affects the entire overview
 - Each bar is **clickable/selectable** — the operator selects one MIDI block and one camera block to drill into
+- Each bar displays its **filename** (or a short label). On mouse hover, a **tooltip** shows full details: filename, duration, start/end timestamps
 
 #### Selection and Drill-Down
 
@@ -189,6 +194,8 @@ The layout has two panels: MIDI (left) and overhead camera (right).
 - The camera clip displayed is the one selected in Level 1 (can be changed via dropdown if needed)
 
 **Timeline resolution:** The camera timeline operates at the native capture frame rate of **239.76 fps (~4.17 ms per frame)**. Navigation steps one frame at a time.
+
+**Frame indexing:** The MP4 container stores **all** ~240fps capture frames (played back in slow-motion at ~24fps). The cv2 frame index maps 1:1 to the capture frame index — `cv2.VideoCapture.set(CAP_PROP_POS_FRAMES, N)` seeks to capture frame N. The `camera_frame` field in anchors is this cv2/container frame index (0-indexed).
 
 #### Resolution Relationship
 
@@ -277,6 +284,19 @@ Equivalently, when an anchor is active, thinking in terms of the anchor as a "pi
 - **Deactivating all anchors** makes locked mode fall back to `global_shift` only
 
 **Toggle button:** A clearly visible toggle in the toolbar switches between Independent and Locked mode. The current mode is always indicated.
+
+### Navigation Controls
+
+Both Level 2 panels support **keyboard and mouse** navigation:
+
+- **Arrow keys:** Step forward/backward by one unit (one frame for camera, one tick for MIDI). Hold Shift+Arrow for larger jumps (e.g., 10 frames or 100 ticks)
+- **Mouse drag:** Scrub the timeline by dragging on the panel or a scrub bar
+- **Scroll wheel:** Zoom in/out on the timeline (adjusting how much time is visible)
+- **Hotkeys:**
+  - Mark MIDI position (e.g., `M`)
+  - Mark camera position (e.g., `C`)
+  - Toggle Independent/Locked mode (e.g., `L`)
+  - Add anchor (e.g., `A`, when both markers are set)
 
 ### Alignment Controls
 
@@ -421,8 +441,10 @@ After adding or selecting an anchor, the Level 1 overview updates to show the ne
 
 The alignment result is saved as a **JSON file** per participant. The tool must support:
 
-- **Save**: Export the current alignment state to JSON
-- **Load**: Import a previously saved JSON file to resume or review alignment
+- **Save**: Export the current alignment state to JSON via **File > Save** menu with a file dialog
+- **Load**: Import a previously saved JSON file via **File > Load** menu with a file dialog to resume or review alignment
+
+There is no auto-save — the operator explicitly saves when ready. The confirmation dialog for global shift changes (which clears anchors) provides sufficient protection; if needed, the operator can reload from the last saved JSON.
 
 #### JSON Structure (draft)
 
