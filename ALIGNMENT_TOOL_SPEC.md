@@ -177,7 +177,7 @@ The layout has two panels: MIDI (left) and overhead camera (right).
 - A **cursor/playhead line** indicates the current MIDI timestamp
 - The user can navigate (scroll/scrub) to any MIDI timestamp
 - The MIDI file displayed is the one selected in Level 1 (can be changed via dropdown if needed)
-- **Anchor lock rule:** When an anchor is active **and** locked mode is on, the MIDI panel **automatically switches** to display the MIDI file referenced by the active anchor (`midi_filename`). The dropdown is locked/grayed in this state. The operator must deactivate the anchor or switch to independent mode to freely change the MIDI file.
+- **Anchor lock rule:** When an anchor is active **and** locked mode is on, the MIDI panel **automatically switches** to display the MIDI file referenced by the active anchor (`midi_filename`). The dropdown is locked/grayed in this state. The operator must deactivate the anchor or switch to independent mode to freely change the MIDI file. In independent mode, activating an anchor does **not** switch the MIDI panel — the operator can freely browse any MIDI file. The auto-switch only triggers when both conditions are met (anchor active AND locked mode on).
 
 **Timeline resolution:** The MIDI timeline operates at the native MIDI sampling rate. For this dataset, the MIDI time resolution is **1/1920 seconds (~0.521 ms per tick)**, derived from `1 / log.time_resolution`. Navigation steps through MIDI time in tick-sized increments. The visualization resolution (how many ticks are visible on screen at once) can be zoomed, but the underlying timeline granularity is always one MIDI tick.
 
@@ -214,9 +214,9 @@ Both panels navigate **independently**. The MIDI cursor and the camera frame pos
 **When to use:** Phase 1 — before the global offset is known. The operator freely browses the MIDI timeline to find a note-on event, and separately browses the camera video to find the corresponding visible keypress. Since the clocks are off by minutes, there is no meaningful linked position yet.
 
 **Workflow in this mode:**
-1. Navigate the MIDI panel to a distinctive note-on event, note the MIDI timestamp
-2. Navigate the camera panel to the matching visible keypress, note the camera timestamp
-3. Compute offset: `global_shift = midi_timestamp - camera_timestamp`
+1. Navigate the MIDI panel to a distinctive note-on event, note the MIDI unix timestamp
+2. Navigate the camera panel to the matching visible keypress, note the camera unix timestamp
+3. Compute offset: `global_shift = midi_unix_timestamp - camera_unix_timestamp`
 4. Enter the global shift value and apply it
 
 #### Locked Mode
@@ -248,8 +248,9 @@ effective_shift = global_shift + anchor_shift
 When navigating via MIDI:
 ```
 camera_unix = midi_unix - effective_shift
-camera_frame = (camera_unix - raw_camera_unix_start) × capture_fps
+camera_frame = round((camera_unix - raw_camera_unix_start) × capture_fps)
 ```
+*(Result is rounded to the nearest integer frame.)*
 
 When navigating via camera:
 ```
@@ -282,7 +283,7 @@ Equivalently, when an anchor is active, thinking in terms of the anchor as a "pi
 #### Global Shift (Phase 1) — accessible in both Level 1 and Level 2
 
 - A numeric input field showing the current `global_shift_seconds` value (default: 0)
-- A button to **compute from current positions**: after the operator has navigated to matching events in Independent mode, clicking this computes `midi_unix_time - camera_unix_time` and fills the field
+- A button to **compute from current positions** (Level 2 only): after the operator has navigated to matching events in Independent mode, clicking this computes `midi_unix_time - camera_unix_time` and fills the field. This button is only present in Level 2, where navigable panels exist. In Level 1, the operator can only type a value directly.
 - A button to **apply**: writes the value and recalculates all aligned camera positions
 - Editing this value affects **all** camera files for this participant
 - **Warning:** If any anchors exist when the operator applies a new global shift, a confirmation dialog appears: *"Changing global shift will remove all N anchors across M camera clips. Continue?"* On confirm, all anchors are cleared. On cancel, the global shift is not changed.
