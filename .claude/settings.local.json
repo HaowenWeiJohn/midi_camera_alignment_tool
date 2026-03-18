@@ -4,7 +4,18 @@
       "Bash(python -c \"import pretty_midi; print\\(pretty_midi.__file__\\)\")",
       "Bash(python -c \"import mido; print\\(mido.__file__\\)\")",
       "Bash(python -c \"import pysampled; print\\(pysampled.__file__\\)\")",
-      "Bash(grep -E \"\\\\.md$|^d\")"
+      "Bash(grep -E \"\\\\.md$|^d\")",
+      "Bash(\"C:/Users/mitim/Desktop/MITHIC/code/midi_camera_alignment_tool/.venv/Scripts/pip\" list:*)",
+      "Bash(find C:UsersmitimDesktopMITHICcodemidi_camera_alignment_tool -type f -name *.md -o -name *.txt -o -name *.toml -o -name *.cfg -o -name *.ini)",
+      "Bash(find:*)",
+      "Bash(grep -r PyQt C:UsersmitimDesktopMITHICcodemidi_camera_alignment_tool --include=*.py)",
+      "Bash(\"C:/Users/mitim/Desktop/MITHIC/code/midi_camera_alignment_tool/.venv/Scripts/python.exe\" -c \"import PyQt5; print\\(PyQt5.__file__\\)\" 2>&1)",
+      "Bash(\"C:/Users/mitim/Desktop/MITHIC/code/midi_camera_alignment_tool/.venv/Scripts/pip.exe\" list:*)",
+      "Bash(\"C:/Users/mitim/Desktop/MITHIC/code/midi_camera_alignment_tool/.venv/Scripts/python.exe\" -c \"import decord; print\\('decord available'\\); import PyQt5.QtWidgets; print\\('PyQt5.QtWidgets OK'\\); import PyQt5.QtCore; print\\('PyQt5.QtCore OK'\\); import PyQt5.QtGui; print\\('PyQt5.QtGui OK'\\)\" 2>&1)",
+      "Bash(python -c \"import PyQt5; print\\(PyQt5.__file__\\)\")",
+      "Bash(python -c \"from PyQt5.QtCore import PYQT_VERSION_STR; print\\(''PyQt5'', PYQT_VERSION_STR\\)\")",
+      "Bash(taskkill //PID 57424 //F)",
+      "Bash(python -c \":*)"
     ]
   }
 }

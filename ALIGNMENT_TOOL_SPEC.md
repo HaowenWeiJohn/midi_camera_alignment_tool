@@ -127,7 +127,7 @@ Global shift (Phase 1) and anchors (Phase 2) follow a **strict ordering**: ancho
 
 ### Technology
 
-- **Framework:** PyQt (Qt for Python)
+- **Framework:** PyQt5 (Qt for Python)
 - **Code location:** All tool source code lives in the `alignment_tool/` directory within this repository
 
 ### Participant Loading
