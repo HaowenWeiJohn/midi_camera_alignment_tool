@@ -118,12 +118,17 @@ Global shift (Phase 1) and anchors (Phase 2) follow a **strict ordering**: ancho
 
 **Rationale:**
 1. Phase 1: Operator sets global shift → all clips are roughly aligned (~within 1–2 seconds)
-2. Phase 2: Operator creates anchors per clip → each clip is fine-tuned relative to the global shift
-3. If global shift changes later, the fine-tuning was done against a different baseline → all anchors must be discarded and Phase 2 redone
+2. Phase 2: Operator creates anchors per clip → the operator found matching keypresses by browsing in locked mode with the current global shift
+3. If global shift changes later, the operator may have matched keypresses under the old alignment that are no longer the best matches → clearing anchors forces re-verification under the corrected global shift. Additionally, the displayed `anchor_shift` values would all change (confusing), even though the total shift is mathematically invariant.
 
 **UI behavior:** When the operator changes the global shift value and anchors exist anywhere, a confirmation dialog appears: *"Changing global shift will remove all N anchors across M camera clips. Continue?"* The operator can cancel to preserve existing anchors, or confirm to apply the new global shift and wipe all anchors.
 
 ## Tool Design
+
+### Technology
+
+- **Framework:** PyQt (Qt for Python)
+- **Code location:** All tool source code lives in the `alignment_tool/` directory within this repository
 
 ### GUI Structure — Two Levels
 
@@ -172,6 +177,7 @@ The layout has two panels: MIDI (left) and overhead camera (right).
 - A **cursor/playhead line** indicates the current MIDI timestamp
 - The user can navigate (scroll/scrub) to any MIDI timestamp
 - The MIDI file displayed is the one selected in Level 1 (can be changed via dropdown if needed)
+- **Anchor lock rule:** When an anchor is active **and** locked mode is on, the MIDI panel **automatically switches** to display the MIDI file referenced by the active anchor (`midi_filename`). The dropdown is locked/grayed in this state. The operator must deactivate the anchor or switch to independent mode to freely change the MIDI file.
 
 **Timeline resolution:** The MIDI timeline operates at the native MIDI sampling rate. For this dataset, the MIDI time resolution is **1/1920 seconds (~0.521 ms per tick)**, derived from `1 / log.time_resolution`. Navigation steps through MIDI time in tick-sized increments. The visualization resolution (how many ticks are visible on screen at once) can be zoomed, but the underlying timeline granularity is always one MIDI tick.
 
@@ -364,7 +370,7 @@ Selecting a non-overlapping pair for drill-down into Level 2 is allowed (the ope
 
 #### Level 2 — Locked Mode
 
-This is where overlap matters most. The "driver" panel (whichever the operator is scrubbing) navigates freely. The "follower" panel computes its position via the anchor and may go out of range.
+This is where overlap matters most. The "driver" panel (whichever the operator is scrubbing) navigates freely. The "follower" panel computes its position via the effective shift (`global_shift` alone, or `global_shift + anchor_shift` if an anchor is active) and may go out of range.
 
 **Three situations for the follower panel:**
 
