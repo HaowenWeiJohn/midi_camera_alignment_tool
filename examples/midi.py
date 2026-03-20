@@ -168,7 +168,8 @@ class Log(mido.MidiFile):
         Returns:
             (start, end, duration) tuple.
         """
-        end_dt = None
+        end_dt_track = None
+        end_dt_file = None
 
         # Try to extract from track_name meta message
         # Note: the track_name timestamp is the *end* time of the recording
@@ -176,18 +177,37 @@ class Log(mido.MidiFile):
             for msg in track:
                 if msg.type == 'track_name' and msg.name:
                     try:
-                        end_dt = datetime.strptime(msg.name[:15], "%Y%m%d_%H%M%S")
+                        end_dt_track = datetime.strptime(msg.name[:15], "%Y%m%d_%H%M%S")
                     except (ValueError, IndexError):
                         pass
                     break
-            if end_dt is not None:
+            if end_dt_track is not None:
                 break
 
-        # Fallback: file modification time
-        if end_dt is None and self.filename is not None:
-            end_dt = datetime.fromtimestamp(os.stat(self.filename).st_mtime)
+        # Always get file modification time when available
+        if self.filename is not None:
+            end_dt_file = datetime.fromtimestamp(os.stat(self.filename).st_mtime)
 
-        if end_dt is None:
+        # Compare both timestamps when available
+        if end_dt_track is not None and end_dt_file is not None:
+            diff = abs((end_dt_track - end_dt_file).total_seconds())
+            print(f"  track_name timestamp: {end_dt_track}")
+            print(f"  file modification:    {end_dt_file}")
+            print(f"  difference:           {diff:.1f}s")
+            if diff > 1.0:
+                print("!" * 80)
+                print(f"!!! WARNING: track_name and file modification timestamps differ by {diff:.1f}s !!!")
+                print(f"!!! File: {self.filename}")
+                print("!" * 80)
+
+        # Choose end_dt: prefer track_name, fall back to file modification time
+        if end_dt_track is not None:
+            end_dt = end_dt_track
+        elif end_dt_file is not None:
+            print(f"WARNING: No timestamp found in track_name metadata for '{self.filename}', "
+                  "falling back to file modification time (may be inaccurate).")
+            end_dt = end_dt_file
+        else:
             raise ValueError("Cannot determine recording time")
 
         # Attach timezone if utc_offset provided
