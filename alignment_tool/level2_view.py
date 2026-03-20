@@ -163,7 +163,15 @@ class Level2View(QWidget):
         self._midi_index = index
         self._midi_adapter = MidiAdapter(mf.file_path)
         self._midi_panel.load_midi(mf, self._midi_adapter)
-        # Jump to first note so the user sees content immediately
+        # Jump to a note near the start so the user sees content immediately.
+        # NOTE: PrettyMIDI's notes list is ordered by note-OFF time (notes are
+        # appended when the note-off event is processed during MIDI parsing),
+        # NOT by note-ON time. So notes[0] is the first note to END, not the
+        # first to START. The .start attribute IS the note-on time, but it
+        # belongs to the earliest-ending note. For the initial viewport position
+        # this is acceptable — the difference from the true earliest onset is
+        # typically negligible. To get the true first onset, use:
+        #   min(n.start for n in notes)
         if self._midi_adapter.notes:
             first_note_time = self._midi_adapter.notes[0].start
             self._midi_panel.set_position(first_note_time)
