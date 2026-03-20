@@ -76,8 +76,10 @@ class Level2View(QWidget):
         layout.addWidget(self._status_line)
         self._update_status_line()
 
-        # Overlap indicator
+        # Overlap indicator (clickable navigation bar)
         self._overlap = OverlapIndicatorWidget()
+        self._overlap.midi_time_clicked.connect(self._on_overlap_midi_clicked)
+        self._overlap.camera_frame_clicked.connect(self._on_overlap_camera_clicked)
         layout.addWidget(self._overlap)
 
         # Main panels (splitter)
@@ -154,6 +156,7 @@ class Level2View(QWidget):
         self._load_camera_file(camera_index)
         self._refresh_anchor_table()
         self._update_overlap()
+        self._update_overlap_indicators()
         self._update_panel_focus_indicator()
 
     def _load_midi_file(self, index: int):
@@ -250,13 +253,20 @@ class Level2View(QWidget):
         return engine.get_effective_shift_for_camera(cf, self._state.global_shift_seconds, midi_lookup)
 
     def _on_midi_position_changed(self, time_seconds: float):
-        if not self._locked or self._state is None:
+        if self._state is None:
             return
         mf = self._state.midi_files[self._midi_index]
+        midi_unix = mf.unix_start + time_seconds
+
+        # Always update MIDI indicator (works in both modes)
+        self._overlap.set_midi_playhead(midi_unix)
+
+        if not self._locked:
+            return
+
+        # Locked mode: sync camera panel
         cf = self._state.camera_files[self._camera_index]
         eff = self._get_effective_shift()
-
-        midi_unix = mf.unix_start + time_seconds
         frame = engine.midi_unix_to_camera_frame(midi_unix, eff, cf)
 
         if frame is not None:
@@ -269,31 +279,33 @@ class Level2View(QWidget):
             elif delta is not None:
                 self._camera_panel.show_out_of_range(f"Camera clip ended {abs(delta):.2f} s ago")
 
-        self._overlap.set_playhead(midi_unix)
-
     def _on_camera_position_changed(self, frame: int):
-        if not self._locked or self._state is None:
+        if self._state is None:
             return
-        mf = self._state.midi_files[self._midi_index]
         cf = self._state.camera_files[self._camera_index]
         eff = self._get_effective_shift()
+        camera_unix = engine.camera_frame_to_unix(frame, cf)
 
+        # Always update camera indicator (works in both modes)
+        self._overlap.set_camera_playhead(camera_unix + eff)
+
+        if not self._locked:
+            return
+
+        # Locked mode: sync MIDI panel
+        mf = self._state.midi_files[self._midi_index]
         midi_seconds = engine.camera_frame_to_midi_seconds(frame, eff, cf, mf)
 
         if midi_seconds is not None:
             self._midi_panel.show_normal()
             self._midi_panel.set_position(midi_seconds)
         else:
-            camera_unix = engine.camera_frame_to_unix(frame, cf)
             midi_unix = camera_unix + eff
             midi_seconds_raw = midi_unix - mf.unix_start
             if midi_seconds_raw < 0:
                 self._midi_panel.show_out_of_range(f"MIDI file starts in {abs(midi_seconds_raw):.2f} s")
             else:
                 self._midi_panel.show_out_of_range(f"MIDI file ended {midi_seconds_raw - mf.duration:.2f} s ago")
-
-        camera_unix = engine.camera_frame_to_unix(frame, cf)
-        self._overlap.set_playhead(camera_unix + eff)
 
     def _sync_from_camera(self):
         """Sync MIDI panel to current camera position using effective shift."""
@@ -426,7 +438,16 @@ class Level2View(QWidget):
         self._update_overlap()
         self.state_modified.emit()
 
-    # --- Overlap ---
+    # --- Overlap navigation bar ---
+
+    def _on_overlap_midi_clicked(self, midi_seconds: float):
+        """User clicked/dragged on the MIDI track of the navigation bar."""
+        self._midi_panel.set_position(midi_seconds)
+
+    def _on_overlap_camera_clicked(self, frame: int):
+        """User clicked/dragged on the camera track of the navigation bar."""
+        self._camera_panel.show_normal()
+        self._camera_panel.set_frame(frame)
 
     def _update_overlap(self):
         if self._state is None:
@@ -435,6 +456,16 @@ class Level2View(QWidget):
         cf = self._state.camera_files[self._camera_index]
         eff = self._get_effective_shift()
         self._overlap.set_clips(mf, cf, eff)
+
+    def _update_overlap_indicators(self):
+        """Set both overlap indicators to current panel positions."""
+        if self._state is None:
+            return
+        mf = self._state.midi_files[self._midi_index]
+        cf = self._state.camera_files[self._camera_index]
+        eff = self._get_effective_shift()
+        self._overlap.set_midi_playhead(mf.unix_start + self._midi_panel.current_time)
+        self._overlap.set_camera_playhead(engine.camera_frame_to_unix(self._camera_panel.current_frame, cf) + eff)
 
     def _jump_to_overlap(self):
         """Jump both panels to the start of the overlap region."""
