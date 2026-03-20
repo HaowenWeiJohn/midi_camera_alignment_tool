@@ -154,6 +154,7 @@ class Level2View(QWidget):
         self._load_camera_file(camera_index)
         self._refresh_anchor_table()
         self._update_overlap()
+        self._update_panel_focus_indicator()
 
     def _load_midi_file(self, index: int):
         if self._state is None:
@@ -162,6 +163,10 @@ class Level2View(QWidget):
         self._midi_index = index
         self._midi_adapter = MidiAdapter(mf.file_path)
         self._midi_panel.load_midi(mf, self._midi_adapter)
+        # Jump to first note so the user sees content immediately
+        if self._midi_adapter.notes:
+            first_note_time = self._midi_adapter.notes[0].start
+            self._midi_panel.set_position(first_note_time)
 
     def _load_camera_file(self, index: int):
         if self._state is None:
@@ -423,6 +428,42 @@ class Level2View(QWidget):
         eff = self._get_effective_shift()
         self._overlap.set_clips(mf, cf, eff)
 
+    def _jump_to_overlap(self):
+        """Jump both panels to the start of the overlap region."""
+        if self._state is None:
+            return
+        mf = self._state.midi_files[self._midi_index]
+        cf = self._state.camera_files[self._camera_index]
+        eff = self._get_effective_shift()
+
+        aligned_cam_start = cf.raw_unix_start + eff
+        aligned_cam_end = cf.raw_unix_end + eff
+
+        # Overlap start = max(midi_start, aligned_cam_start)
+        overlap_start_unix = max(mf.unix_start, aligned_cam_start)
+        # Overlap end = min(midi_end, aligned_cam_end)
+        overlap_end_unix = min(mf.unix_end, aligned_cam_end)
+
+        if overlap_start_unix >= overlap_end_unix:
+            QMessageBox.information(
+                self, "No Overlap",
+                "The selected MIDI file and camera clip do not overlap "
+                "with the current alignment. Try adjusting the global shift first."
+            )
+            return
+
+        # Position MIDI panel at overlap start
+        midi_seconds = overlap_start_unix - mf.unix_start
+        midi_seconds = max(0.0, min(midi_seconds, mf.duration))
+        self._midi_panel.set_position(midi_seconds)
+
+        # Position camera panel at overlap start
+        camera_unix = overlap_start_unix - eff
+        frame = round((camera_unix - cf.raw_unix_start) * cf.capture_fps)
+        frame = max(0, min(frame, cf.total_frames - 1))
+        self._camera_panel.show_normal()
+        self._camera_panel.set_frame(frame)
+
     # --- Keyboard shortcuts ---
 
     def _setup_shortcuts(self):
@@ -443,6 +484,7 @@ class Level2View(QWidget):
         shortcut(Qt.Key_Right, lambda: self._step_active(1, False))
         shortcut(Qt.SHIFT + Qt.Key_Left, lambda: self._step_active(-1, True))
         shortcut(Qt.SHIFT + Qt.Key_Right, lambda: self._step_active(1, True))
+        shortcut(Qt.Key_O, self._jump_to_overlap)
         shortcut(Qt.Key_Tab, self._switch_active_panel)
         shortcut(Qt.Key_Escape, self.back_requested.emit)
 
@@ -473,9 +515,9 @@ class Level2View(QWidget):
         mode = "Locked" if self._locked else "Independent"
         active = "MIDI" if self._active_panel == "midi" else "Camera"
         self._status_line.setText(
-            f"{mode} Mode  |  Active panel: {active}  |  "
-            f"Arrows: navigate  |  Tab: switch panel  |  L: toggle mode  |  "
-            f"M: mark MIDI  |  C: mark camera  |  A: add anchor"
+            f"{mode} Mode  |  Active: {active} (Tab to switch)  |  "
+            f"Arrows: navigate  |  L: toggle mode  |  "
+            f"M: mark MIDI  |  C: mark camera  |  A: add anchor  |  O: jump to overlap"
         )
 
     def _flash_label(self, label: QLabel):
