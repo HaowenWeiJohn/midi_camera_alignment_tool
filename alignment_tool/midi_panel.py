@@ -299,7 +299,7 @@ class MidiPanelWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._canvas = MidiCanvasWidget()
-        self._canvas.position_changed.connect(self.position_changed.emit)
+        self._canvas.position_changed.connect(self._on_canvas_position_changed)
 
         self._info_label = QLabel("No MIDI loaded")
         self._info_label.setAlignment(Qt.AlignCenter)
@@ -328,6 +328,11 @@ class MidiPanelWidget(QWidget):
     @property
     def canvas(self) -> MidiCanvasWidget:
         return self._canvas
+
+    def _on_canvas_position_changed(self, time_seconds: float):
+        """Handle canvas position changes (e.g. mouse drag) — update label and relay signal."""
+        self._update_info()
+        self.position_changed.emit(time_seconds)
 
     def _update_info(self):
         if self._canvas._midi_info is None:
