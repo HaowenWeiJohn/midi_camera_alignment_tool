@@ -156,7 +156,6 @@ class Level2View(QWidget):
         self._load_camera_file(camera_index)
         self._refresh_anchor_table()
         self._update_overlap()
-        self._update_overlap_indicators()
         self._update_panel_focus_indicator()
 
     def _load_midi_file(self, index: int):
@@ -456,14 +455,7 @@ class Level2View(QWidget):
         cf = self._state.camera_files[self._camera_index]
         eff = self._get_effective_shift()
         self._overlap.set_clips(mf, cf, eff)
-
-    def _update_overlap_indicators(self):
-        """Set both overlap indicators to current panel positions."""
-        if self._state is None:
-            return
-        mf = self._state.midi_files[self._midi_index]
-        cf = self._state.camera_files[self._camera_index]
-        eff = self._get_effective_shift()
+        # Always keep indicators in sync with current panel positions and eff
         self._overlap.set_midi_playhead(mf.unix_start + self._midi_panel.current_time)
         self._overlap.set_camera_playhead(engine.camera_frame_to_unix(self._camera_panel.current_frame, cf) + eff)
 

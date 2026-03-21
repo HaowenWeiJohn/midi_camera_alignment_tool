@@ -90,9 +90,11 @@ class OverlapIndicatorWidget(QWidget):
         t_min, t_max, t_range, bar_w = layout
         return t_min + (x - MARGIN) / bar_w * t_range
 
-    def _t_to_x(self, t: float) -> float:
-        """Convert unix timestamp to pixel x. Caller must ensure layout is valid."""
+    def _t_to_x(self, t: float) -> float | None:
+        """Convert unix timestamp to pixel x."""
         layout = self._compute_layout()
+        if layout is None:
+            return None
         t_min, t_max, t_range, bar_w = layout
         return MARGIN + (t - t_min) / t_range * bar_w
 
