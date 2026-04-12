@@ -75,3 +75,7 @@ participant_folder/
 - Inter-widget communication uses PyQt signals/slots exclusively
 - Private attributes prefixed with `_`; signals use `snake_case`
 - `alignment_engine.py` must remain pure (no Qt imports) so it can be tested independently
+
+## Agent Usage
+
+- When spawning subagents via the Agent tool, always use `model: "opus"` to ensure the most capable model is used
