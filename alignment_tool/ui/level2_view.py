@@ -271,14 +271,26 @@ class Level2View(QWidget):
             return 0.0
         return self._service.effective_shift_for(self._camera_index)
 
+    def _set_midi_playhead(self, time_seconds: float) -> None:
+        """Push the MIDI overlap playhead to the given MIDI-relative time."""
+        if self._state is None:
+            return
+        mf = self._state.midi_files[self._midi_index]
+        self._overlap.set_midi_playhead(mf.unix_start + time_seconds)
+
+    def _set_camera_playhead(self, frame: int) -> None:
+        """Push the camera overlap playhead to the given frame, aligned by effective shift."""
+        if self._state is None:
+            return
+        cf = self._state.camera_files[self._camera_index]
+        eff = self._get_effective_shift()
+        self._overlap.set_camera_playhead(engine.camera_frame_to_unix(frame, cf) + eff)
+
     def _on_midi_position_changed(self, time_seconds: float):
         if self._controller is None or self._state is None:
             return
-        mf = self._state.midi_files[self._midi_index]
-        midi_unix = mf.unix_start + time_seconds
-
         # Always update MIDI indicator (works in both modes)
-        self._overlap.set_midi_playhead(midi_unix)
+        self._set_midi_playhead(time_seconds)
 
         out = self._controller.on_midi_position_changed(time_seconds)
         self._apply_sync_output(out, driven_panel="midi")
@@ -286,12 +298,8 @@ class Level2View(QWidget):
     def _on_camera_position_changed(self, frame: int):
         if self._controller is None or self._state is None:
             return
-        cf = self._state.camera_files[self._camera_index]
-        eff = self._get_effective_shift()
-        camera_unix = engine.camera_frame_to_unix(frame, cf)
-
         # Always update camera indicator (works in both modes)
-        self._overlap.set_camera_playhead(camera_unix + eff)
+        self._set_camera_playhead(frame)
 
         out = self._controller.on_camera_position_changed(frame)
         self._apply_sync_output(out, driven_panel="camera")
@@ -300,6 +308,9 @@ class Level2View(QWidget):
         """Render a controller SyncOutput onto the panels.
 
         Feedback-loop safe via QSignalBlocker around mirrored ``set_*`` calls.
+        Because the blocker swallows the mirrored panel's ``position_changed``
+        signal, the overlap playhead on the mirrored side must be pushed
+        explicitly here (otherwise only the driven side's indicator moves).
         ``driven_panel`` indicates which panel triggered the update so that OOR
         display targets the mirrored (other) panel.
         """
@@ -307,10 +318,12 @@ class Level2View(QWidget):
             self._camera_panel.show_normal()
             with QSignalBlocker(self._camera_panel):
                 self._camera_panel.set_frame(out.new_camera_frame)
+            self._set_camera_playhead(out.new_camera_frame)
         if out.new_midi_time is not None:
             self._midi_panel.show_normal()
             with QSignalBlocker(self._midi_panel):
                 self._midi_panel.set_position(out.new_midi_time)
+            self._set_midi_playhead(out.new_midi_time)
         if out.out_of_range_delta is not None:
             self._show_oor(out.out_of_range_delta, driven_panel)
         else:
