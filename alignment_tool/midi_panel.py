@@ -8,7 +8,7 @@ from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QBrush, QLinearGradient
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
 
 from alignment_tool.core.models import MidiFileInfo
-from alignment_tool.midi_adapter import MidiAdapter, MIDI_TO_NOTE
+from alignment_tool.io.midi_adapter import MidiAdapter, MIDI_TO_NOTE
 
 # Piano keyboard constants
 PIANO_HEIGHT = 40

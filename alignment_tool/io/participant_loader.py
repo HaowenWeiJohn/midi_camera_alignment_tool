@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 
 from alignment_tool.core.models import AlignmentState
-from alignment_tool.midi_adapter import MidiAdapter
-from alignment_tool.camera_adapter import CameraAdapter
+from alignment_tool.io.midi_adapter import MidiAdapter
+from alignment_tool.io.camera_adapter import CameraAdapter
 
 
 class ParticipantLoader:

@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
 )
 
 from alignment_tool.core.models import AlignmentState, MidiFileInfo, CameraFileInfo, Anchor
-from alignment_tool.midi_adapter import MidiAdapter
+from alignment_tool.io.midi_adapter import MidiAdapter
 from alignment_tool.midi_panel import MidiPanelWidget
 from alignment_tool.camera_panel import CameraPanelWidget
 from alignment_tool.anchor_table import AnchorTableWidget
