@@ -16,6 +16,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from alignment_tool.core.errors import CameraXmlParseError, InvalidFpsError, VideoOpenError
 from alignment_tool.core.models import CameraFileInfo
 
 NAMESPACE = {'nrt': 'urn:schemas-professionalDisc:nonRealTimeMeta:ver.2.20'}
@@ -30,9 +31,14 @@ class CameraAdapter:
         self._capture: cv2.VideoCapture | None = None
 
         # Parse XML metadata
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
-        self._parse_xml(root)
+        try:
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+            self._parse_xml(root)
+        except CameraXmlParseError:
+            raise
+        except Exception as e:
+            raise CameraXmlParseError(path=xml_path, reason=str(e))
 
         # Get basic MP4 properties (quick open/close)
         self._parse_mp4_properties()
@@ -50,7 +56,10 @@ class CameraAdapter:
     def _parse_mp4_properties(self):
         cap = cv2.VideoCapture(str(self._mp4_path))
         if not cap.isOpened():
-            raise RuntimeError(f"Cannot open video: {self._mp4_path}")
+            raise VideoOpenError(
+                path=str(self._mp4_path),
+                reason="cv2.VideoCapture could not open file",
+            )
         self.mp4_fps = cap.get(cv2.CAP_PROP_FPS)
         self.mp4_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.mp4_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -86,6 +95,8 @@ class CameraAdapter:
 
     def to_file_info(self) -> CameraFileInfo:
         """Build a CameraFileInfo from this adapter."""
+        if self.capture_fps <= 0:
+            raise InvalidFpsError(self.capture_fps)
         start, end, duration = self.get_recording_time_range("unix")
         mp4_name = Path(self._mp4_path).name
         xml_name = Path(self._xml_path).name

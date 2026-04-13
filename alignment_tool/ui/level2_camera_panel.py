@@ -40,6 +40,7 @@ class CameraPanelWidget(QWidget):
         self._worker = FrameWorker()
         self._worker.moveToThread(self._worker_thread)
         self._worker.frame_ready.connect(self._on_frame_ready)
+        self._worker.open_failed.connect(self._on_worker_open_failed)
         self._worker_thread.start()
 
     def load_video(self, camera_info: CameraFileInfo):
@@ -112,11 +113,19 @@ class CameraPanelWidget(QWidget):
         if self._camera_info is not None:
             self._request_frame(self._current_frame)
 
+    def _on_worker_open_failed(self, msg: str) -> None:
+        self._frame_label.setStyleSheet("background: #7a1f1f; color: white;")
+        self._frame_label.setText(f"Video unavailable:\n{msg}")
+
     def cleanup(self):
         """Release resources."""
         self._worker.close_video()
         self._worker_thread.quit()
         self._worker_thread.wait(2000)
+
+    def hideEvent(self, event):
+        self.cleanup()
+        super().hideEvent(event)
 
     def closeEvent(self, event):
         self.cleanup()

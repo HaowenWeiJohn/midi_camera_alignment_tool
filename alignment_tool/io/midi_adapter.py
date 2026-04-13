@@ -39,13 +39,13 @@ class MidiAdapter:
         self._filepath = filepath
         self._mido = mido.MidiFile(filepath)
         self._pm = pretty_midi.PrettyMIDI(filepath)
-        self._tempo, self._has_tempo_changes = self._extract_tempo()
+        self._tempo = self._extract_tempo()
 
-    def _extract_tempo(self) -> tuple[float, bool]:
-        """Extract tempo, returning (tempo_usec, has_changes).
+    def _extract_tempo(self) -> float:
+        """Extract tempo in microseconds per beat.
 
         For constant-tempo files, returns the single tempo.
-        For multi-tempo files, returns the first tempo and flags it.
+        For multi-tempo files, returns the first tempo encountered.
         """
         default_tempo = 500_000  # 120 BPM
         tempos = set()
@@ -54,15 +54,15 @@ class MidiAdapter:
                 if msg.type == 'set_tempo':
                     tempos.add(msg.tempo)
         if not tempos:
-            return default_tempo, False
+            return default_tempo
         if len(tempos) == 1:
-            return tempos.pop(), False
-        # Multiple tempos — return first encountered, flag it
+            return tempos.pop()
+        # Multiple tempos — return first encountered
         for track in self._mido.tracks:
             for msg in track:
                 if msg.type == 'set_tempo':
-                    return msg.tempo, True
-        return default_tempo, False
+                    return msg.tempo
+        return default_tempo
 
     @property
     def filepath(self) -> str:
