@@ -11,6 +11,8 @@ from PyQt5.QtWidgets import (
 
 from alignment_tool.core.models import AlignmentState, MidiFileInfo, CameraFileInfo, Anchor
 from alignment_tool.io.midi_adapter import MidiAdapter
+from alignment_tool.services.alignment_service import AlignmentService
+from alignment_tool.services.level2_controller import Level2Controller
 from alignment_tool.ui.level2_midi_panel import MidiPanelWidget
 from alignment_tool.ui.level2_camera_panel import CameraPanelWidget
 from alignment_tool.ui.level2_anchor_table import AnchorTableWidget
@@ -27,6 +29,9 @@ class Level2View(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._state: AlignmentState | None = None
+        self._service: AlignmentService | None = None
+        self._controller: Level2Controller | None = None
+        self._state_via_attach: AlignmentState | None = None
         self._midi_index: int = 0
         self._camera_index: int = 0
         self._midi_adapter: MidiAdapter | None = None
@@ -127,6 +132,15 @@ class Level2View(QWidget):
 
         # Keyboard shortcuts (work regardless of which child widget has focus)
         self._setup_shortcuts()
+
+    def attach(
+        self, state: AlignmentState,
+        service: AlignmentService,
+        controller: Level2Controller,
+    ) -> None:
+        self._state_via_attach = state       # temporary field; Task 13 consolidates
+        self._service = service
+        self._controller = controller
 
     def load_pair(self, state: AlignmentState, midi_index: int, camera_index: int):
         """Load a MIDI + camera pair for alignment."""

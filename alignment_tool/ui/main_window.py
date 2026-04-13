@@ -1,14 +1,23 @@
+import logging
+
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
     QMainWindow, QStackedWidget, QAction, QFileDialog,
     QMessageBox, QLabel, QApplication,
 )
 
+from alignment_tool.core import persistence
+from alignment_tool.core.errors import (
+    AlignmentToolError, InvariantError, MediaLoadError, PersistenceError,
+)
 from alignment_tool.core.models import AlignmentState
 from alignment_tool.io.participant_loader import ParticipantLoader
+from alignment_tool.services.alignment_service import AlignmentService
+from alignment_tool.services.level2_controller import Level2Controller
 from alignment_tool.ui.level1_timeline import Level1Widget
 from alignment_tool.ui.level2_view import Level2View
-from alignment_tool.core import persistence
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -21,6 +30,8 @@ class MainWindow(QMainWindow):
         self.resize(1400, 800)
 
         self._state: AlignmentState | None = None
+        self._service: AlignmentService | None = None
+        self._controller: Level2Controller | None = None
 
         # Central stacked widget (Level 1 / Level 2)
         self._stack = QStackedWidget()
@@ -83,18 +94,18 @@ class MainWindow(QMainWindow):
     def state(self) -> AlignmentState | None:
         return self._state
 
-    def _set_state(self, state: AlignmentState):
+    def _set_state(self, state: AlignmentState, warnings: list[str] | None = None):
         self._state = state
+        self._service = AlignmentService(state)
+        self._controller = Level2Controller(state, self._service)
         self._save_action.setEnabled(True)
         self.setWindowTitle(f"MIDI-Camera Alignment Tool \u2014 Participant {state.participant_id}")
-        self._status_label.setText(
-            f"Participant {state.participant_id} | "
-            f"{len(state.midi_files)} MIDI files | "
-            f"{len(state.camera_files)} camera clips | "
-            f"Global shift: {state.global_shift_seconds:.3f}s"
-        )
-        self._level1.set_state(state)
+        self._update_status()
+        self._level1.set_state(state, self._service)
+        self._level2.attach(state, self._service, self._controller)
         self._stack.setCurrentWidget(self._level1)
+        if warnings:
+            self._show_warnings(warnings)
         self.state_changed.emit()
 
     def _on_pair_selected(self, midi_index: int, camera_index: int):
@@ -130,30 +141,31 @@ class MainWindow(QMainWindow):
         )
 
     def _on_open_participant(self):
-        folder = QFileDialog.getExistingDirectory(
-            self, "Select Participant Folder"
-        )
+        folder = QFileDialog.getExistingDirectory(self, "Select Participant Folder")
         if not folder:
             return
-
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            state = ParticipantLoader.load(folder)
+            result = ParticipantLoader.load(folder)
+        except AlignmentToolError as e:
+            QApplication.restoreOverrideCursor()
+            self._show_exception(e)
+            return
         except Exception as e:
             QApplication.restoreOverrideCursor()
+            logger.exception("Unexpected error loading participant")
             QMessageBox.critical(self, "Error Loading Participant", str(e))
             return
         QApplication.restoreOverrideCursor()
 
-        if not state.midi_files and not state.camera_files:
+        if not result.state.midi_files and not result.state.camera_files:
             QMessageBox.warning(
                 self, "No Files Found",
                 f"No .mid or .MP4 files found in:\n{folder}\n\n"
                 "Expected subdirectories: disklavier/ and overhead camera/"
             )
             return
-
-        self._set_state(state)
+        self._set_state(result.state, warnings=result.warnings)
 
     def _on_save(self):
         if self._state is None:
@@ -166,7 +178,10 @@ class MainWindow(QMainWindow):
         try:
             persistence.save_alignment(self._state, filepath)
             self._status_label.setText(f"Saved: {filepath}")
+        except AlignmentToolError as e:
+            self._show_exception(e)
         except Exception as e:
+            logger.exception("Unexpected error saving alignment")
             QMessageBox.critical(self, "Error Saving", str(e))
 
     def _on_load(self):
@@ -178,5 +193,25 @@ class MainWindow(QMainWindow):
         try:
             state = persistence.load_alignment(filepath)
             self._set_state(state)
+        except AlignmentToolError as e:
+            self._show_exception(e)
         except Exception as e:
+            logger.exception("Unexpected error loading alignment")
             QMessageBox.critical(self, "Error Loading", str(e))
+
+    def _show_exception(self, exc: AlignmentToolError) -> None:
+        if isinstance(exc, (MediaLoadError, PersistenceError)):
+            QMessageBox.critical(self, type(exc).__name__, str(exc))
+        elif isinstance(exc, InvariantError):
+            QMessageBox.warning(self, type(exc).__name__, str(exc))
+        else:
+            QMessageBox.critical(self, "Error", str(exc))
+
+    def _show_warnings(self, warnings: list[str]) -> None:
+        if not warnings:
+            return
+        msg = "\n".join(f"\u2022 {w}" for w in warnings)
+        QMessageBox.warning(
+            self, "Some files could not be loaded",
+            f"{len(warnings)} file(s) were skipped:\n\n{msg}",
+        )

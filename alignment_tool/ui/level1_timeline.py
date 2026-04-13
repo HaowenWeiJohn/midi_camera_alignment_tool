@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import QWidget, QToolTip, QVBoxLayout, QHBoxLayout, QLabel,
 
 from alignment_tool.core.models import AlignmentState
 from alignment_tool.core.engine import get_effective_shift_for_camera
+from alignment_tool.services.alignment_service import AlignmentService
 
 
 # Colors
@@ -377,9 +378,11 @@ class Level1Widget(QWidget):
         layout.addWidget(self._canvas, stretch=1)
 
         self._state: AlignmentState | None = None
+        self._service: AlignmentService | None = None
 
-    def set_state(self, state: AlignmentState):
+    def set_state(self, state: AlignmentState, service: AlignmentService | None = None):
         self._state = state
+        self._service = service
         self._shift_spin.setValue(state.global_shift_seconds)
         self._canvas.set_state(state)
 
