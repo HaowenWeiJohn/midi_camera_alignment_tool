@@ -40,6 +40,8 @@ class Level2View(QWidget):
         self._camera_index: int = 0
         self._midi_adapter: MidiAdapter | None = None
         self._active_panel: str = "camera"  # still view-local: which panel last had focus
+        # Pending un-flash timers per marker label; see _flash_label.
+        self._flash_timers: dict[QLabel, QTimer] = {}
 
         self._build_ui()
 
@@ -636,10 +638,32 @@ class Level2View(QWidget):
         )
 
     def _flash_label(self, label: QLabel):
-        """Brief visual flash to confirm marker was set."""
-        original = label.styleSheet()
-        label.setStyleSheet("background-color: #446; color: white; font-weight: bold; padding: 2px;")
-        QTimer.singleShot(400, lambda: label.setStyleSheet(original))
+        """Brief visual flash to confirm marker was set.
+
+        Cancels any pending un-flash timer for this label before starting a new
+        flash. The old implementation captured ``label.styleSheet()`` at flash
+        time; if called while already flashing, the captured "original" was the
+        flash style itself and the timer would "restore" to it, leaving the
+        label stuck dark after rapid repeated C/M presses. The marker labels'
+        normal state is an empty stylesheet (``_update_marker_ui`` only touches
+        text, never style), so we restore unconditionally to ``""``.
+        """
+        existing = self._flash_timers.get(label)
+        if existing is not None:
+            existing.stop()
+        label.setStyleSheet(
+            "background-color: #446; color: white; font-weight: bold; padding: 2px;"
+        )
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+
+        def _unflash() -> None:
+            label.setStyleSheet("")
+            self._flash_timers.pop(label, None)
+
+        timer.timeout.connect(_unflash)
+        timer.start(400)
+        self._flash_timers[label] = timer
 
     def cleanup(self):
         self._camera_panel.cleanup()
