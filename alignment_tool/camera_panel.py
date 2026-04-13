@@ -104,6 +104,13 @@ class CameraPanelWidget(QWidget):
     def show_normal(self):
         """Restore normal display mode."""
         self._frame_label.setStyleSheet("background-color: #222;")
+        # Re-request current frame so that any OOR text placeholder is replaced
+        # by a pixmap (QLabel holds text OR pixmap, not both). On a cache hit
+        # this is effectively instant; on a cache miss the existing pixmap (if
+        # any) remains visible during the async fetch, so there is no flicker
+        # even on a Normal → Normal transition.
+        if self._camera_info is not None:
+            self._request_frame(self._current_frame)
 
     def cleanup(self):
         """Release resources."""

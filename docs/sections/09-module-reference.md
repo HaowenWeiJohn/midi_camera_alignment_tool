@@ -65,7 +65,7 @@ All formulas are reproduced in [Alignment Concepts §4.2](./04-alignment-concept
 
 ## `participant_loader.py`
 
-`ParticipantLoader.load(folder, utc_offset=0.0) -> AlignmentState` — the only static method. `utc_offset` defaults to `0.0` and is only stored on `AlignmentState.utc_offset_hours` for backward compatibility; the adapters no longer consume it.
+`ParticipantLoader.load(folder) -> AlignmentState` — the only static method.
 
 1. Treats `Path(folder).name` as `participant_id`.
 2. Iterates `disklavier/*.mid` alphabetically; builds `MidiFileInfo`s.

@@ -59,7 +59,6 @@ class MidiFileInfo:
 class AlignmentState:
     participant_id: str
     participant_folder: str            # in-memory only; not persisted
-    utc_offset_hours: float
     global_shift_seconds: float = 0.0
     midi_files: list[MidiFileInfo] = []
     camera_files: list[CameraFileInfo] = []
@@ -93,7 +92,6 @@ This matters for load semantics: after reloading a JSON, the tool can redraw the
 ```json
 {
   "participant_id": "009",
-  "utc_offset_hours": -5,
   "global_shift_seconds": -342.5,
   "midi_files": [
     {
@@ -132,7 +130,6 @@ This matters for load semantics: after reloading a JSON, the tool can redraw the
 | Path | Required | Meaning |
 |---|---|---|
 | `participant_id` | yes | copy of folder name |
-| `utc_offset_hours` | yes | float, hours (e.g., `-5` for EST, `-4` for EDT). **Legacy field** — the adapters no longer use it (times come from file mtime, which is an absolute unix timestamp). Retained so old JSON round-trips; new participants save `0.0`. |
 | `global_shift_seconds` | yes | applies to **every** camera clip |
 | `midi_files[].filename` | yes | matches the base name in `disklavier/` |
 | `midi_files[].unix_start/unix_end/duration/sample_rate` | yes | cached metadata so Level 1 can redraw without re-parsing `.mid` files |
@@ -157,6 +154,8 @@ Pretty-printed with `indent=2`. No atomic-write / tempfile swap — if the proce
 ### Load implementation (`persistence.load_alignment`)
 
 Straight JSON → dataclass construction. Missing `alignment_notes` defaults to `""` (`data.get("alignment_notes", "")`). Missing `label` on an anchor defaults to `""` (`a.get("label", "")`). All other fields are required and will raise `KeyError` on malformed input.
+
+Older JSON files may contain a `utc_offset_hours` field — it is ignored on load (the field has been removed from the data model).
 
 ## 8.4 Mutations at a Glance
 

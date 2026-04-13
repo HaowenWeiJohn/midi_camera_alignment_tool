@@ -29,7 +29,7 @@ The code is flat inside `alignment_tool/`. There are three tiers of modules:
 | `alignment_engine.py` | Pure time-math: `compute_anchor_shift`, `get_effective_shift_for_camera`, `midi_unix_to_camera_frame`, `camera_frame_to_midi_seconds`, `out_of_range_delta`, etc. |
 | `midi_adapter.py` | `MidiAdapter` wraps `mido` + `pretty_midi`; builds `MidiFileInfo`. |
 | `camera_adapter.py` | `CameraAdapter` wraps Sony FX30 XML sidecar + `cv2`; builds `CameraFileInfo`; exposes `get_frame()` for one-off reads. |
-| `participant_loader.py` | `ParticipantLoader.load(folder, utc_offset=0.0)` → `AlignmentState`. `utc_offset` is legacy (retained so old JSON round-trips); no longer used by the adapters. |
+| `participant_loader.py` | `ParticipantLoader.load(folder)` → `AlignmentState`. |
 | `persistence.py` | `save_alignment` / `load_alignment` — JSON round-trip. |
 
 ### Tier 2 — Widgets (PyQt, no app orchestration)

@@ -38,7 +38,7 @@ No other code touches `_capture` on `FrameWorker`. Serializing everything throug
 
 ### 6. JSON persistence only stores decisions and cached metadata
 
-Anything that can be re-derived from source media (file paths, total_frames, tempo, ticks_per_beat) is re-derived at load time. Conversely, anything the operator decided (global_shift, anchors, active_anchor_index, participant_id, utc_offset_hours) must round-trip. If you add a field, decide which category it belongs to and don't bridge them.
+Anything that can be re-derived from source media (file paths, total_frames, tempo, ticks_per_beat) is re-derived at load time. Conversely, anything the operator decided (global_shift, anchors, active_anchor_index, participant_id) must round-trip. If you add a field, decide which category it belongs to and don't bridge them.
 
 ## 10.2 Adding a Feature — Common Scenarios
 

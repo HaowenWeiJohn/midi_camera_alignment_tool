@@ -352,3 +352,4 @@ class MidiPanelWidget(QWidget):
 
     def show_normal(self):
         self._canvas.show()
+        self._update_info()

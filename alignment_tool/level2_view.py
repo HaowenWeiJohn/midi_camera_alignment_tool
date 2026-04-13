@@ -165,6 +165,7 @@ class Level2View(QWidget):
         self._midi_index = index
         self._midi_adapter = MidiAdapter(mf.file_path)
         self._midi_panel.load_midi(mf, self._midi_adapter)
+        self._midi_panel.show_normal()
         # Jump to a note near the start so the user sees content immediately.
         # NOTE: PrettyMIDI's notes list is ordered by note-OFF time (notes are
         # appended when the note-off event is processed during MIDI parsing),
@@ -184,6 +185,7 @@ class Level2View(QWidget):
         cf = self._state.camera_files[index]
         self._camera_index = index
         self._camera_panel.load_video(cf)
+        self._camera_panel.show_normal()
         self._refresh_anchor_table()
 
     def _on_midi_combo_changed(self, index: int):
@@ -208,6 +210,14 @@ class Level2View(QWidget):
             self._apply_anchor_lock_rule()
             # Sync panels when entering locked mode (even without anchor)
             self._sync_from_camera()
+        else:
+            # Leaving locked mode: clear any stuck out-of-range display on
+            # either panel, since OOR is only meaningful while locked.
+            self._reset_panels_to_normal()
+
+    def _reset_panels_to_normal(self):
+        self._midi_panel.show_normal()
+        self._camera_panel.show_normal()
 
     def _apply_anchor_lock_rule(self):
         """When locked + anchor active, auto-switch MIDI file to anchor's reference."""
@@ -430,6 +440,7 @@ class Level2View(QWidget):
 
     def _on_anchor_deactivated(self):
         self._midi_combo.setEnabled(True)
+        self._reset_panels_to_normal()
         self._update_overlap()
         self.state_modified.emit()
 
@@ -441,6 +452,7 @@ class Level2View(QWidget):
 
     def _on_overlap_midi_clicked(self, midi_seconds: float):
         """User clicked/dragged on the MIDI track of the navigation bar."""
+        self._midi_panel.show_normal()
         self._midi_panel.set_position(midi_seconds)
 
     def _on_overlap_camera_clicked(self, frame: int):
@@ -486,6 +498,7 @@ class Level2View(QWidget):
         # Position MIDI panel at overlap start
         midi_seconds = overlap_start_unix - mf.unix_start
         midi_seconds = max(0.0, min(midi_seconds, mf.duration))
+        self._midi_panel.show_normal()
         self._midi_panel.set_position(midi_seconds)
 
         # Position camera panel at overlap start

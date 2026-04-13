@@ -47,7 +47,6 @@ class MidiFileInfo:
 class AlignmentState:
     participant_id: str
     participant_folder: str
-    utc_offset_hours: float
     global_shift_seconds: float = 0.0
     midi_files: list[MidiFileInfo] = field(default_factory=list)
     camera_files: list[CameraFileInfo] = field(default_factory=list)

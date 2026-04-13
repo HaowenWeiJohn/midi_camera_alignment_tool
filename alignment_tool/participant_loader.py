@@ -12,7 +12,7 @@ from alignment_tool.camera_adapter import CameraAdapter
 class ParticipantLoader:
 
     @staticmethod
-    def load(folder: str, utc_offset: float = 0.0) -> AlignmentState:
+    def load(folder: str) -> AlignmentState:
         """Load a participant from a folder.
 
         Expects subdirectories:
@@ -59,7 +59,6 @@ class ParticipantLoader:
         return AlignmentState(
             participant_id=participant_id,
             participant_folder=folder,
-            utc_offset_hours=utc_offset,
             midi_files=midi_files,
             camera_files=camera_files,
         )

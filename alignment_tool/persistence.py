@@ -16,7 +16,6 @@ def save_alignment(state: AlignmentState, filepath: str) -> None:
     """Serialize AlignmentState to JSON."""
     data = {
         "participant_id": state.participant_id,
-        "utc_offset_hours": state.utc_offset_hours,
         "global_shift_seconds": state.global_shift_seconds,
         "midi_files": [
             {
@@ -103,7 +102,6 @@ def load_alignment(filepath: str) -> AlignmentState:
     return AlignmentState(
         participant_id=data["participant_id"],
         participant_folder="",  # not stored in JSON
-        utc_offset_hours=data["utc_offset_hours"],
         global_shift_seconds=data["global_shift_seconds"],
         midi_files=midi_files,
         camera_files=camera_files,
