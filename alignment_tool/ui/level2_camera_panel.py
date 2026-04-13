@@ -91,15 +91,18 @@ class CameraPanelWidget(QWidget):
             self._counter_label.setText("No video loaded")
             return
         total = self._camera_info.total_frames
-        # Display is 1-indexed so the last frame reads "total / total" instead of
-        # the confusing "total-1 / total". Internally, self._current_frame and
-        # Anchor.camera_frame remain 0-indexed cv2 indices.
-        frame_display = self._current_frame + 1
-        time_s = self._current_frame / self._camera_info.capture_fps
-        total_time_s = total / self._camera_info.capture_fps
+        # Frame counter is 0-indexed with max shown as total_frames - 1, matching
+        # the marker label ("Camera mark: frame N (T.TTTs)") and the anchor
+        # table's Camera Frame column. Time is frame-centric too: the max time
+        # is the time of the last frame, (total - 1) / fps, not the clip
+        # wall-clock duration total / fps.
+        max_index = max(0, total - 1)
+        fps = self._camera_info.capture_fps
+        time_s = self._current_frame / fps
+        max_time_s = max_index / fps
         self._counter_label.setText(
-            f"Frame: {frame_display} / {total}  |  "
-            f"Time: {time_s:.3f}s / {total_time_s:.3f}s"
+            f"Frame: {self._current_frame} / {max_index}  |  "
+            f"Time: {time_s:.3f}s / {max_time_s:.3f}s"
         )
 
     def show_out_of_range(self, message: str):
