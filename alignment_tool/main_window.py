@@ -4,11 +4,11 @@ from PyQt5.QtWidgets import (
     QMessageBox, QLabel, QApplication,
 )
 
-from alignment_tool.models import AlignmentState
+from alignment_tool.core.models import AlignmentState
 from alignment_tool.participant_loader import ParticipantLoader
 from alignment_tool.level1_timeline import Level1Widget
 from alignment_tool.level2_view import Level2View
-from alignment_tool import persistence
+from alignment_tool.core import persistence
 
 
 class MainWindow(QMainWindow):

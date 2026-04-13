@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from alignment_tool.models import (
+from alignment_tool.core.models import (
     AlignmentState, MidiFileInfo, CameraFileInfo, Anchor,
 )
 

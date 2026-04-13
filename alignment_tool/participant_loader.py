@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from alignment_tool.models import AlignmentState
+from alignment_tool.core.models import AlignmentState
 from alignment_tool.midi_adapter import MidiAdapter
 from alignment_tool.camera_adapter import CameraAdapter
 

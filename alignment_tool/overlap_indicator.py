@@ -10,7 +10,7 @@ from PyQt5.QtCore import Qt, QRectF, pyqtSignal
 from PyQt5.QtGui import QPainter, QColor, QPen, QBrush
 from PyQt5.QtWidgets import QWidget
 
-from alignment_tool.models import MidiFileInfo, CameraFileInfo
+from alignment_tool.core.models import MidiFileInfo, CameraFileInfo
 
 # Layout constants
 MARGIN = 10

@@ -5,8 +5,8 @@ from PyQt5.QtCore import Qt, QRectF, pyqtSignal, QPointF
 from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QFontMetrics, QBrush
 from PyQt5.QtWidgets import QWidget, QToolTip, QVBoxLayout, QHBoxLayout, QLabel, QDoubleSpinBox, QPushButton
 
-from alignment_tool.models import AlignmentState
-from alignment_tool.alignment_engine import get_effective_shift_for_camera
+from alignment_tool.core.models import AlignmentState
+from alignment_tool.core.engine import get_effective_shift_for_camera
 
 
 # Colors

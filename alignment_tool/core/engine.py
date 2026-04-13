@@ -4,7 +4,7 @@ No Qt dependency — this module can be tested independently.
 """
 from __future__ import annotations
 
-from alignment_tool.models import Anchor, CameraFileInfo, MidiFileInfo
+from alignment_tool.core.models import Anchor, CameraFileInfo, MidiFileInfo
 
 
 def compute_anchor_shift(

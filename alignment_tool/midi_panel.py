@@ -7,7 +7,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, QRectF
 from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QBrush, QLinearGradient
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
 
-from alignment_tool.models import MidiFileInfo
+from alignment_tool.core.models import MidiFileInfo
 from alignment_tool.midi_adapter import MidiAdapter, MIDI_TO_NOTE
 
 # Piano keyboard constants

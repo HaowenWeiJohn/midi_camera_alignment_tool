@@ -15,7 +15,7 @@ from datetime import datetime
 import mido
 import pretty_midi
 
-from alignment_tool.models import MidiFileInfo
+from alignment_tool.core.models import MidiFileInfo
 
 # Module-level constants
 NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']

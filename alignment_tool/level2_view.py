@@ -9,13 +9,13 @@ from PyQt5.QtWidgets import (
     QShortcut,
 )
 
-from alignment_tool.models import AlignmentState, MidiFileInfo, CameraFileInfo, Anchor
+from alignment_tool.core.models import AlignmentState, MidiFileInfo, CameraFileInfo, Anchor
 from alignment_tool.midi_adapter import MidiAdapter
 from alignment_tool.midi_panel import MidiPanelWidget
 from alignment_tool.camera_panel import CameraPanelWidget
 from alignment_tool.anchor_table import AnchorTableWidget
 from alignment_tool.overlap_indicator import OverlapIndicatorWidget
-from alignment_tool import alignment_engine as engine
+from alignment_tool.core import engine
 
 
 class Level2View(QWidget):

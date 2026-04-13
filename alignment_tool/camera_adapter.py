@@ -16,7 +16,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from alignment_tool.models import CameraFileInfo
+from alignment_tool.core.models import CameraFileInfo
 
 NAMESPACE = {'nrt': 'urn:schemas-professionalDisc:nonRealTimeMeta:ver.2.20'}
 

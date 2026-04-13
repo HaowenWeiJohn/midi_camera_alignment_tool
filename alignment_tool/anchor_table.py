@@ -7,8 +7,8 @@ from PyQt5.QtWidgets import (
     QPushButton, QHeaderView, QAbstractItemView, QLabel,
 )
 
-from alignment_tool.models import CameraFileInfo, MidiFileInfo, Anchor
-from alignment_tool.alignment_engine import compute_anchor_shift
+from alignment_tool.core.models import CameraFileInfo, MidiFileInfo, Anchor
+from alignment_tool.core.engine import compute_anchor_shift
 
 
 class AnchorTableWidget(QWidget):

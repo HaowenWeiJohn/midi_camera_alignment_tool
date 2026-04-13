@@ -5,7 +5,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, QThread
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout
 
-from alignment_tool.models import CameraFileInfo
+from alignment_tool.core.models import CameraFileInfo
 from alignment_tool.frame_worker import FrameWorker
 
 
