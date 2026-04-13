@@ -1,7 +1,7 @@
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
     QMainWindow, QStackedWidget, QAction, QFileDialog,
-    QMessageBox, QLabel, QInputDialog, QApplication,
+    QMessageBox, QLabel, QApplication,
 )
 
 from alignment_tool.models import AlignmentState
@@ -136,17 +136,9 @@ class MainWindow(QMainWindow):
         if not folder:
             return
 
-        utc_offset, ok = QInputDialog.getDouble(
-            self, "UTC Offset",
-            "Enter UTC offset in hours\n(e.g., -5 for EST, -4 for EDT):",
-            value=-5.0, min=-12.0, max=14.0, decimals=1,
-        )
-        if not ok:
-            return
-
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            state = ParticipantLoader.load(folder, utc_offset)
+            state = ParticipantLoader.load(folder)
         except Exception as e:
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, "Error Loading Participant", str(e))

@@ -12,7 +12,7 @@ from alignment_tool.camera_adapter import CameraAdapter
 class ParticipantLoader:
 
     @staticmethod
-    def load(folder: str, utc_offset: float) -> AlignmentState:
+    def load(folder: str, utc_offset: float = 0.0) -> AlignmentState:
         """Load a participant from a folder.
 
         Expects subdirectories:
@@ -36,7 +36,7 @@ class ParticipantLoader:
             for fname in mid_filenames:
                 fpath = str(disklavier_dir / fname)
                 adapter = MidiAdapter(fpath)
-                midi_files.append(adapter.to_file_info(utc_offset))
+                midi_files.append(adapter.to_file_info())
 
         # Discover camera files
         camera_files = []

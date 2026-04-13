@@ -4,10 +4,13 @@ Adapts the essential logic from examples/midi.py, fixing known issues:
 - Uses PrettyMIDI.get_end_time() for duration (avoids rounding error)
 - Caches tempo extraction (avoids O(N) per call)
 - Drops unused dependencies (pysampled, datanavigator)
+- Uses file mtime as recording end time (some MIDI files lack the
+  track_name timestamp the Disklavier normally embeds)
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import os
+from datetime import datetime
 
 import mido
 import pretty_midi
@@ -95,44 +98,31 @@ class MidiAdapter:
             return self._pm.instruments[0].notes
         return []
 
-    def get_recording_time_range(self, fmt: str = "unix", utc_offset: float | None = None):
+    def get_recording_time_range(self, fmt: str = "unix"):
         """Return (start, end, duration) for this MIDI recording.
 
-        The track_name meta message encodes the END time as YYYYMMDD_HHMMSS.
-        Start time is derived by subtracting duration.
+        End time comes from the file's mtime (os.path.getmtime), which is an
+        absolute unix timestamp. Start time is end minus duration.
         """
-        end_dt = None
-        for track in self._mido.tracks:
-            for msg in track:
-                if msg.type == 'track_name' and msg.name:
-                    try:
-                        end_dt = datetime.strptime(msg.name[:15], "%Y%m%d_%H%M%S")
-                    except (ValueError, IndexError):
-                        pass
-                    break
-            if end_dt is not None:
-                break
-
-        if end_dt is None:
-            raise ValueError(f"Cannot determine recording time for {self._filepath}")
-
-        if utc_offset is not None:
-            tz = timezone(timedelta(hours=utc_offset))
-            end_dt = end_dt.replace(tzinfo=tz)
-
-        start_dt = end_dt - timedelta(seconds=self.duration)
-        end_dt_final = start_dt + timedelta(seconds=self.duration)
+        # mtime reflects the recording machine's clock at file-close; it will
+        # be wrong if the file is later copied/touched without preserving times.
+        end_unix = os.path.getmtime(self._filepath)
+        start_unix = end_unix - self.duration
 
         if fmt == "unix":
-            return start_dt.timestamp(), end_dt_final.timestamp(), self.duration
+            return start_unix, end_unix, self.duration
         elif fmt == "datetime":
-            return start_dt, end_dt_final, self.duration
+            return (
+                datetime.fromtimestamp(start_unix),
+                datetime.fromtimestamp(end_unix),
+                self.duration,
+            )
         else:
             raise ValueError(f"Unknown format: {fmt!r}")
 
-    def to_file_info(self, utc_offset: float) -> MidiFileInfo:
+    def to_file_info(self) -> MidiFileInfo:
         """Build a MidiFileInfo from this adapter."""
-        start, end, duration = self.get_recording_time_range("unix", utc_offset)
+        start, end, duration = self.get_recording_time_range("unix")
         return MidiFileInfo(
             filename=self._filepath.replace("\\", "/").split("/")[-1],
             unix_start=start,

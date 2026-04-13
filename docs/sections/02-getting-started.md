@@ -38,10 +38,9 @@ By design, the current repository has:
 
 1. **Launch the app.** You see an empty window with a "No participant loaded" placeholder and a `File` menu.
 2. **File → Open Participant** (Ctrl+O). A folder picker appears — choose a participant folder that contains `disklavier/` and `overhead camera/` subdirectories.
-3. **UTC Offset prompt.** A dialog asks for the UTC offset (for example, `-5` for EST, `-4` for EDT). This is required because the MIDI file `track_name` timestamps are naive local time; the tool converts them to unix timestamps using this offset.
-4. **Loading.** The tool parses each `.mid` file (using `mido` + `pretty_midi`) and each `.MP4`+`.XML` pair (using XML sidecar + `cv2`). A wait cursor is shown while scanning.
-5. **Level 1 timeline appears.** A bar chart with MIDI files (blue, top row) and camera files (orange, bottom row) plotted against a shared time axis.
-6. **Apply a global shift** (Phase 1) or **drill into a pair** (Phase 2) — see [Workflows](./07-workflows.md).
+3. **Loading.** The tool parses each `.mid` file (using `mido` + `pretty_midi`) and each `.MP4`+`.XML` pair (using XML sidecar + `cv2`). End times are taken from each file's mtime; start times are derived by subtracting the parsed duration. A wait cursor is shown while scanning.
+4. **Level 1 timeline appears.** A bar chart with MIDI files (blue, top row) and camera files (orange, bottom row) plotted against a shared time axis.
+5. **Apply a global shift** (Phase 1) or **drill into a pair** (Phase 2) — see [Workflows](./07-workflows.md).
 
 ## Saving and Loading Alignment State
 

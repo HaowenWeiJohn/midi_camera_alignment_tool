@@ -32,8 +32,8 @@ The app uses a two-level drill-down UI built with PyQt5's `QStackedWidget`:
 **Core non-UI modules:**
 - `alignment_engine.py` — Pure functions for all time-math (no Qt dependency). This is the mathematical heart of the tool: anchor shift derivation, effective shift computation, bidirectional MIDI-to-camera frame conversion.
 - `models.py` — Dataclasses: `AlignmentState`, `MidiFileInfo`, `CameraFileInfo`, `Anchor`
-- `midi_adapter.py` — Wraps `mido` + `pretty_midi` for MIDI file parsing. Derives start time from track_name end-time metadata minus duration.
-- `camera_adapter.py` — Parses Sony FX30 XML sidecar metadata + cv2 for MP4 frame count.
+- `midi_adapter.py` — Wraps `mido` + `pretty_midi` for MIDI file parsing. Derives end time from the `.mid` file's mtime (`os.path.getmtime`); start is end − duration.
+- `camera_adapter.py` — Parses Sony FX30 XML sidecar for duration, capture fps, and frame count; derives end time from the MP4's mtime; start is end − duration.
 - `participant_loader.py` — Discovers files in expected folder structure: `disklavier/*.mid` and `overhead camera/*.MP4` + `.XML` pairs.
 - `persistence.py` — JSON serialization of `AlignmentState` (anchors + global shift + metadata; file paths are NOT persisted).
 

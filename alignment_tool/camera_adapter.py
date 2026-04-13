@@ -1,14 +1,16 @@
 """Camera metadata adapter for the alignment tool.
 
 Adapts examples/overhead_camera.py with fixes:
-- Local format_time_range (no cross-module import)
 - Lazy MP4 opening for frame extraction
 - get_frame() method for video frame access
+- Uses MP4 mtime as recording end time; start derived as end - duration
+  (XML CreationDate is no longer consulted — can be missing/unreliable)
 """
 from __future__ import annotations
 
+import os
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -17,16 +19,6 @@ import numpy as np
 from alignment_tool.models import CameraFileInfo
 
 NAMESPACE = {'nrt': 'urn:schemas-professionalDisc:nonRealTimeMeta:ver.2.20'}
-
-
-def _format_time_range(start_dt: datetime, duration_seconds: float, fmt: str = "unix"):
-    end_dt = start_dt + timedelta(seconds=duration_seconds)
-    if fmt == "datetime":
-        return start_dt, end_dt, duration_seconds
-    elif fmt == "unix":
-        return start_dt.timestamp(), end_dt.timestamp(), duration_seconds
-    else:
-        raise ValueError(f"Unknown format: {fmt!r}")
 
 
 class CameraAdapter:
@@ -51,9 +43,6 @@ class CameraAdapter:
         duration_elem = root.find('nrt:Duration', ns)
         self.duration_frames = int(duration_elem.get('value'))
 
-        creation_elem = root.find('nrt:CreationDate', ns)
-        self.creation_date = datetime.fromisoformat(creation_elem.get('value'))
-
         video_frame = root.find('.//nrt:VideoFrame', ns)
         self.capture_fps = float(video_frame.get('captureFps').rstrip('pi'))
         self.format_fps = float(video_frame.get('formatFps').rstrip('pi'))
@@ -74,7 +63,26 @@ class CameraAdapter:
         return self.duration_frames / self.capture_fps
 
     def get_recording_time_range(self, fmt: str = "unix"):
-        return _format_time_range(self.creation_date, self.duration, fmt)
+        """Return (start, end, duration) for this MP4 recording.
+
+        End time comes from the MP4's mtime (os.path.getmtime), which is an
+        absolute unix timestamp. Start time is end minus duration.
+        """
+        # mtime reflects the camera's clock at file-close; it will be wrong if
+        # the MP4 is later copied/touched without preserving times.
+        end_unix = os.path.getmtime(self._mp4_path)
+        start_unix = end_unix - self.duration
+
+        if fmt == "unix":
+            return start_unix, end_unix, self.duration
+        elif fmt == "datetime":
+            return (
+                datetime.fromtimestamp(start_unix),
+                datetime.fromtimestamp(end_unix),
+                self.duration,
+            )
+        else:
+            raise ValueError(f"Unknown format: {fmt!r}")
 
     def to_file_info(self) -> CameraFileInfo:
         """Build a CameraFileInfo from this adapter."""

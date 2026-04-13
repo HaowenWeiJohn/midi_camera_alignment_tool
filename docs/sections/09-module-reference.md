@@ -48,23 +48,24 @@ All formulas are reproduced in [Alignment Concepts §4.2](./04-alignment-concept
 - Constants `NOTE_NAMES`, `MIDI_TO_NOTE`, `NOTE_TO_MIDI` for pitch labels (not currently consumed outside this module but exported for future use).
 - `_extract_tempo()` — returns `(tempo_usec, has_tempo_changes)`. Uses the first `set_tempo` if multiple exist.
 - Properties: `ticks_per_beat`, `tempo`, `time_resolution` (seconds/tick), `sample_rate` (ticks/sec), `duration` (via `PrettyMIDI.get_end_time()` — honors tempo maps), `notes` (list from the first instrument).
-- `get_recording_time_range(fmt, utc_offset)` — parses the `track_name` as `YYYYMMDD_HHMMSS`, applies the UTC offset, subtracts duration → `(start, end, duration)`. Raises `ValueError` if no parseable track name.
-- `to_file_info(utc_offset) -> MidiFileInfo`.
+- `get_recording_time_range(fmt)` — reads `os.path.getmtime(filepath)` as the recording end, subtracts `duration` to get the start → `(start, end, duration)`.
+- `to_file_info() -> MidiFileInfo`.
 
 ## `camera_adapter.py`
 
 `CameraAdapter(xml_path, mp4_path)` wraps Sony FX30 XML sidecar + `cv2`.
 
 - Namespace: `urn:schemas-professionalDisc:nonRealTimeMeta:ver.2.20`.
-- `_parse_xml` extracts `duration_frames`, `creation_date`, `capture_fps`, `format_fps`.
+- `_parse_xml` extracts `duration_frames`, `capture_fps`, `format_fps`. (`CreationDate` is no longer read — end time comes from MP4 mtime.)
 - `_parse_mp4_properties` opens the MP4 briefly to get `mp4_fps`, `mp4_frame_count`, `mp4_width`, `mp4_height`.
 - `duration` property = `duration_frames / capture_fps`.
+- `get_recording_time_range(fmt)` — `end = os.path.getmtime(mp4_path)`; `start = end − duration`.
 - `to_file_info() -> CameraFileInfo`.
 - Frame extraction: `open()` / `close()` / `get_frame(frame_index)` for single-use reads. (The Level 2 panel does not call these — it uses `FrameWorker` instead.)
 
 ## `participant_loader.py`
 
-`ParticipantLoader.load(folder, utc_offset) -> AlignmentState` — the only static method.
+`ParticipantLoader.load(folder, utc_offset=0.0) -> AlignmentState` — the only static method. `utc_offset` defaults to `0.0` and is only stored on `AlignmentState.utc_offset_hours` for backward compatibility; the adapters no longer consume it.
 
 1. Treats `Path(folder).name` as `participant_id`.
 2. Iterates `disklavier/*.mid` alphabetically; builds `MidiFileInfo`s.
@@ -86,7 +87,7 @@ Schema: [Data Model §8.3](./08-data-model-persistence.md).
 - Sets up File menu (Open / Save / Load / Exit).
 - Owns the `QStackedWidget` with placeholder / Level1Widget / Level2View.
 - Slots:
-  - `_on_open_participant` — folder picker, UTC prompt, calls `ParticipantLoader.load`.
+  - `_on_open_participant` — folder picker, then calls `ParticipantLoader.load(folder)`.
   - `_on_save` / `_on_load` — JSON dialogs.
   - `_on_pair_selected(midi_index, camera_index)` — switches to Level 2.
   - `_on_back_to_level1` — refresh Level 1, switch back.

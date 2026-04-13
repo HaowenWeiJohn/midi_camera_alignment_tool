@@ -25,18 +25,17 @@ The folder name is used as the `participant_id` (see `participant_loader.py:25`)
 
 ### Reference Timestamp
 
-The **end time** of a recording is encoded in the `track_name` meta message as `YYYYMMDD_HHMMSS` (naive local time). `MidiAdapter.get_recording_time_range` parses the first 15 characters of `track_name`, attaches the user-provided UTC offset, derives the **start** by subtracting the duration, and returns `(unix_start, unix_end, duration)`.
+The **end time** of a recording is taken from the `.mid` file's last-modification time (`os.path.getmtime`), which is an absolute unix timestamp. The **start** is derived by subtracting the duration. `MidiAdapter.get_recording_time_range` returns `(unix_start, unix_end, duration)`.
 
 The duration itself is read via `pretty_midi.PrettyMIDI.get_end_time()`, which honors tempo maps.
 
 ```python
 # alignment_tool/midi_adapter.py
-end_dt = datetime.strptime(msg.name[:15], "%Y%m%d_%H%M%S")
-end_dt = end_dt.replace(tzinfo=timezone(timedelta(hours=utc_offset)))
-start_dt = end_dt - timedelta(seconds=self.duration)
+end_unix   = os.path.getmtime(self._filepath)
+start_unix = end_unix - self.duration
 ```
 
-If no `track_name` with a parseable timestamp is present, loading raises `ValueError`.
+mtime is taken as the moment the Disklavier finished writing the file — effectively the recording's end. It will be wrong if the file is later copied or touched by a tool that doesn't preserve timestamps.
 
 ### Tempo Handling
 
@@ -51,7 +50,7 @@ From `alignment_tool/models.py`:
 | Field | Source |
 |---|---|
 | `filename` | base name of the `.mid` file |
-| `unix_start`, `unix_end`, `duration` | derived from `track_name` + `PrettyMIDI.get_end_time()` |
+| `unix_start`, `unix_end`, `duration` | `unix_end` from `os.path.getmtime`; `duration` from `PrettyMIDI.get_end_time()`; `unix_start = unix_end - duration` |
 | `sample_rate` | `1.0 / time_resolution` |
 | `ticks_per_beat` | from the MIDI header |
 | `tempo` | microseconds per beat |
@@ -71,11 +70,12 @@ From `alignment_tool/models.py`:
 | XML node | What the tool extracts |
 |---|---|
 | `nrt:Duration[@value]` | `duration_frames` (integer frame count at capture rate) |
-| `nrt:CreationDate[@value]` | `creation_date` (timezone-aware `datetime`, treated as the clip **start**) |
 | `nrt:VideoFrame[@captureFps]` | `capture_fps` (~239.76) — the real-world rate at which the sensor captured |
 | `nrt:VideoFrame[@formatFps]` | `format_fps` (~24) — the playback rate (slow-motion container rate) |
 
 The `captureFps` and `formatFps` values sometimes end with a trailing `p` or `i` (progressive / interlaced marker); the code strips those via `rstrip('pi')`.
+
+> Note: `nrt:CreationDate` is **not** read. The clip **end** time comes from the MP4's mtime (`os.path.getmtime`), and the **start** is derived as `end − duration`. Same rationale as the MIDI side: mtime is always present and survives cases where `CreationDate` is missing or unreliable.
 
 ### MP4 Properties (via cv2)
 
@@ -93,14 +93,14 @@ So when `cv2.VideoCapture.set(CAP_PROP_POS_FRAMES, N)` is called with `N`, it se
 
 ### Wall-Clock Duration
 
-`CameraAdapter.duration = duration_frames / capture_fps`. `raw_unix_end = creation_date.timestamp() + duration`.
+`CameraAdapter.duration = duration_frames / capture_fps`. `raw_unix_end = os.path.getmtime(mp4_path)`; `raw_unix_start = raw_unix_end - duration`.
 
 ### Relevant CameraFileInfo Fields
 
 | Field | Source |
 |---|---|
 | `filename`, `xml_filename` | base names |
-| `raw_unix_start`, `raw_unix_end` | `creation_date.timestamp()` and `+duration` |
+| `raw_unix_start`, `raw_unix_end` | `raw_unix_end` from MP4 mtime; `raw_unix_start = raw_unix_end − duration` |
 | `duration` | `duration_frames / capture_fps` |
 | `capture_fps` | from XML |
 | `total_frames` | from cv2 (`CAP_PROP_FRAME_COUNT`) |

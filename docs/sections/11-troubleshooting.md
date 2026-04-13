@@ -8,11 +8,11 @@ The participant folder must contain `disklavier/` and `overhead camera/` subdire
 
 ### "Warning: XML sidecar not found for C00XX.MP4, skipping"
 
-The loader expects a sidecar at `<stem>M01.XML`. If your recordings use a different naming (e.g., `M02`, `M00`), modify `participant_loader.py:48`. MP4s without a sidecar are skipped; the tool cannot compute a start time without `CreationDate`.
+The loader expects a sidecar at `<stem>M01.XML`. If your recordings use a different naming (e.g., `M02`, `M00`), modify `participant_loader.py:48`. MP4s without a sidecar are skipped because the adapter reads `duration_frames` and `capture_fps` from the XML — without it, the clip's wall-clock duration can't be computed. (End time is taken from the MP4's mtime, which *is* always available, but duration still requires the XML.)
 
-### `ValueError: Cannot determine recording time for <file>.mid`
+### MIDI or camera clip is placed far from where I expect on the Level 1 timeline
 
-Raised by `MidiAdapter.get_recording_time_range` when no `track_name` meta message containing a parseable `YYYYMMDD_HHMMSS` prefix is found. Disklavier files should all have this; if one doesn't, it was likely produced by a different tool and needs handling (a one-off fix is to edit the MIDI with `mido` to add a synthetic `track_name`, or supply the time some other way).
+Clip start/end are derived from the file's mtime (`os.path.getmtime`) minus duration. If a file has been copied or touched by a tool that doesn't preserve modification times, its mtime reflects *the copy*, not the recording. Symptoms: a single participant's clips look shifted relative to the others, or all clips collapse to roughly the same moment (the time of the bulk copy). The global-shift + anchor workflow can still recover alignment, but the bulk offset will be larger than the usual 1–20 minutes.
 
 ### Load is slow
 

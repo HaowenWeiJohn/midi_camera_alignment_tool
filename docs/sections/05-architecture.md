@@ -29,7 +29,7 @@ The code is flat inside `alignment_tool/`. There are three tiers of modules:
 | `alignment_engine.py` | Pure time-math: `compute_anchor_shift`, `get_effective_shift_for_camera`, `midi_unix_to_camera_frame`, `camera_frame_to_midi_seconds`, `out_of_range_delta`, etc. |
 | `midi_adapter.py` | `MidiAdapter` wraps `mido` + `pretty_midi`; builds `MidiFileInfo`. |
 | `camera_adapter.py` | `CameraAdapter` wraps Sony FX30 XML sidecar + `cv2`; builds `CameraFileInfo`; exposes `get_frame()` for one-off reads. |
-| `participant_loader.py` | `ParticipantLoader.load(folder, utc_offset)` → `AlignmentState`. |
+| `participant_loader.py` | `ParticipantLoader.load(folder, utc_offset=0.0)` → `AlignmentState`. `utc_offset` is legacy (retained so old JSON round-trips); no longer used by the adapters. |
 | `persistence.py` | `save_alignment` / `load_alignment` — JSON round-trip. |
 
 ### Tier 2 — Widgets (PyQt, no app orchestration)
@@ -50,7 +50,7 @@ The code is flat inside `alignment_tool/`. There are three tiers of modules:
 |---|---|
 | `__main__.py` | Entry: calls `app.main()`. |
 | `app.py` | Creates `QApplication`, instantiates `MainWindow`, runs the event loop. |
-| `main_window.py` | Menu, stacked widget, state wiring, Save/Load dialogs, UTC-offset prompt. |
+| `main_window.py` | Menu, stacked widget, state wiring, Save/Load dialogs. |
 
 ## 5.3 Data-flow and Signal Wiring
 
@@ -59,10 +59,10 @@ The code is flat inside `alignment_tool/`. There are three tiers of modules:
 ```
 File → Open Participant
   ↓ MainWindow._on_open_participant
-  ↓ QFileDialog.getExistingDirectory + QInputDialog.getDouble (UTC offset)
-  ↓ ParticipantLoader.load(folder, utc_offset)
-    ├── MidiAdapter per .mid → MidiFileInfo
-    └── CameraAdapter per .MP4/.XML → CameraFileInfo
+  ↓ QFileDialog.getExistingDirectory
+  ↓ ParticipantLoader.load(folder)
+    ├── MidiAdapter per .mid → MidiFileInfo   (end = file mtime; start = end − duration)
+    └── CameraAdapter per .MP4/.XML → CameraFileInfo  (end = MP4 mtime; start = end − duration)
   ↓ AlignmentState
   ↓ MainWindow._set_state
     ├── Level1Widget.set_state(state)    # renders timeline

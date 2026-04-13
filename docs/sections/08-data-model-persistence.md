@@ -24,8 +24,8 @@ Derived values (`anchor_shift`, aligned unix positions) are **not** stored on th
 class CameraFileInfo:
     filename: str                      # e.g. "C0001.MP4"
     xml_filename: str                  # e.g. "C0001M01.XML"
-    raw_unix_start: float              # from XML CreationDate.timestamp()
-    raw_unix_end: float                # raw_unix_start + duration
+    raw_unix_start: float              # raw_unix_end - duration
+    raw_unix_end: float                # from MP4 mtime (os.path.getmtime)
     duration: float                    # duration_frames / capture_fps
     capture_fps: float                 # e.g. 239.76
     total_frames: int                  # from cv2 CAP_PROP_FRAME_COUNT
@@ -43,8 +43,8 @@ class CameraFileInfo:
 @dataclass
 class MidiFileInfo:
     filename: str
-    unix_start: float                  # derived from track_name - duration
-    unix_end: float
+    unix_start: float                  # unix_end - duration
+    unix_end: float                    # from .mid file mtime (os.path.getmtime)
     duration: float                    # from PrettyMIDI.get_end_time()
     sample_rate: float                 # 1 / time_resolution (~1920 Hz)
     ticks_per_beat: int = 0            # in-memory only; not persisted
@@ -132,7 +132,7 @@ This matters for load semantics: after reloading a JSON, the tool can redraw the
 | Path | Required | Meaning |
 |---|---|---|
 | `participant_id` | yes | copy of folder name |
-| `utc_offset_hours` | yes | float, hours (e.g., `-5` for EST, `-4` for EDT) — needed to reinterpret MIDI timestamps if the participant is reopened |
+| `utc_offset_hours` | yes | float, hours (e.g., `-5` for EST, `-4` for EDT). **Legacy field** — the adapters no longer use it (times come from file mtime, which is an absolute unix timestamp). Retained so old JSON round-trips; new participants save `0.0`. |
 | `global_shift_seconds` | yes | applies to **every** camera clip |
 | `midi_files[].filename` | yes | matches the base name in `disklavier/` |
 | `midi_files[].unix_start/unix_end/duration/sample_rate` | yes | cached metadata so Level 1 can redraw without re-parsing `.mid` files |
