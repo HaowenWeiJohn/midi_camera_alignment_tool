@@ -59,15 +59,24 @@ def midi_unix_to_camera_frame(
 ) -> int | None:
     """Locked mode: MIDI drives camera.
 
-    Returns frame index (rounded to nearest int), or None if out of range.
+    Returns a rounded frame index in ``[0, total_frames - 1]`` when the
+    corresponding camera unix time lies within ``[raw_unix_start, raw_unix_end]``.
+    Returns ``None`` only when truly out of range.
+
+    Rounding can push ``frame_float`` to ``total_frames`` (e.g. when midi_unix
+    is at the tail of the clip's last frame interval); we clamp rather than
+    returning ``None`` so the user can actually reach the last frame when
+    scrubbing MIDI near the end of the overlap. This also guards against the
+    rare case where ``duration`` (XML-derived) and ``total_frames`` (cv2-derived)
+    disagree by ±1 frame.
     """
     _check_fps(camera)
     camera_unix = midi_unix - effective_shift
+    if camera_unix < camera.raw_unix_start or camera_unix > camera.raw_unix_end:
+        return None
     frame_float = (camera_unix - camera.raw_unix_start) * camera.capture_fps
     frame = round(frame_float)
-    if frame < 0 or frame >= camera.total_frames:
-        return None
-    return frame
+    return max(0, min(frame, camera.total_frames - 1))
 
 
 def camera_frame_to_midi_seconds(

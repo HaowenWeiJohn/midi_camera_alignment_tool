@@ -541,11 +541,12 @@ class Level2View(QWidget):
         self._midi_panel.show_normal()
         self._midi_panel.set_position(midi_seconds)
 
-        # Position camera panel at overlap start
+        # Position camera panel at overlap start. After the engine's boundary
+        # clamp fix, midi_unix_to_camera_frame always returns a valid frame
+        # when overlap exists, but we keep a safe default for paranoia.
         frame = engine.midi_unix_to_camera_frame(overlap_start_unix, eff, cf)
         if frame is None:
-            # Overlap exists but rounding pushed us out; clamp to valid range.
-            frame = max(0, min(cf.total_frames - 1, 0))
+            frame = 0
         self._camera_panel.show_normal()
         self._camera_panel.set_frame(frame)
 

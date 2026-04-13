@@ -65,6 +65,41 @@ def test_midi_unix_to_camera_frame_after_end_returns_none():
     assert engine.midi_unix_to_camera_frame(midi_unix=1020.0, effective_shift=0.0, camera=cam) is None
 
 
+def test_midi_unix_to_camera_frame_at_exact_start_is_zero():
+    cam = make_camera_file(raw_unix_start=1000.0, capture_fps=240.0, duration=10.0)
+    assert engine.midi_unix_to_camera_frame(midi_unix=1000.0, effective_shift=0.0, camera=cam) == 0
+
+
+def test_midi_unix_to_camera_frame_at_exact_end_clamps_to_last_frame():
+    """camera_unix == raw_unix_end should yield the last valid frame, not None.
+
+    At duration=10s, fps=240: frame_float = 10 * 240 = 2400 exactly; rounded
+    gives 2400; must clamp to total_frames - 1 = 2399.
+    """
+    cam = make_camera_file(raw_unix_start=1000.0, capture_fps=240.0, duration=10.0)
+    frame = engine.midi_unix_to_camera_frame(midi_unix=1010.0, effective_shift=0.0, camera=cam)
+    assert frame == cam.total_frames - 1
+
+
+def test_midi_unix_to_camera_frame_just_below_end_clamps_not_none():
+    """Rounding that lands on total_frames must clamp, not return None.
+
+    frame_float = 2399.76 -> round() -> 2400 -> clamped to 2399.
+    Before the fix, this returned None (OOR) so the user could not reach
+    the last frame when scrubbing MIDI near the clip end.
+    """
+    cam = make_camera_file(raw_unix_start=1000.0, capture_fps=240.0, duration=10.0)
+    # Land inside the last frame's interval: just 0.001s before raw_unix_end.
+    frame = engine.midi_unix_to_camera_frame(midi_unix=1009.999, effective_shift=0.0, camera=cam)
+    assert frame == cam.total_frames - 1
+
+
+def test_midi_unix_to_camera_frame_just_past_end_returns_none():
+    """camera_unix strictly greater than raw_unix_end is truly OOR."""
+    cam = make_camera_file(raw_unix_start=1000.0, capture_fps=240.0, duration=10.0)
+    assert engine.midi_unix_to_camera_frame(midi_unix=1010.001, effective_shift=0.0, camera=cam) is None
+
+
 def test_camera_frame_to_midi_seconds_round_trips_with_midi_unix_to_camera_frame():
     midi = make_midi_file(unix_start=1000.0, duration=100.0)
     cam = make_camera_file(raw_unix_start=1030.0, capture_fps=240.0, duration=60.0)
