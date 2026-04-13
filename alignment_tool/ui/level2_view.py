@@ -286,6 +286,25 @@ class Level2View(QWidget):
         eff = self._get_effective_shift()
         self._overlap.set_camera_playhead(engine.camera_frame_to_unix(frame, cf) + eff)
 
+    def _snap_both_overlap_playheads_to_frame(self, frame: int) -> None:
+        """Set both overlap playheads to the same unix time derived from a frame.
+
+        Used in locked mode when MIDI drives the camera. The MIDI overlap
+        playhead would otherwise sit at the user's continuous drag time while
+        the camera playhead sits at the frame-quantized unix time; this gap
+        (up to 0.5/fps s) can render as a visible 1-pixel offset via the
+        overlap indicator's int(px) rounding. Snapping both to the frame
+        grid guarantees perfect visual alignment. The MIDI panel's own
+        internal playhead (red line) is unaffected.
+        """
+        if self._state is None:
+            return
+        cf = self._state.camera_files[self._camera_index]
+        eff = self._get_effective_shift()
+        aligned_unix = engine.camera_frame_to_unix(frame, cf) + eff
+        self._overlap.set_camera_playhead(aligned_unix)
+        self._overlap.set_midi_playhead(aligned_unix)
+
     def _on_midi_position_changed(self, time_seconds: float):
         if self._controller is None or self._state is None:
             return
@@ -318,12 +337,19 @@ class Level2View(QWidget):
             self._camera_panel.show_normal()
             with QSignalBlocker(self._camera_panel):
                 self._camera_panel.set_frame(out.new_camera_frame)
-            self._set_camera_playhead(out.new_camera_frame)
+            # MIDI drove camera in locked mode. Snap BOTH overlap playheads to
+            # the camera-frame unix so the two vertical indicators can't drift
+            # apart due to round()-vs-continuous quantization (~sub-pixel but
+            # visible after int(px) rounding).
+            self._snap_both_overlap_playheads_to_frame(out.new_camera_frame)
         if out.new_midi_time is not None:
             self._midi_panel.show_normal()
             with QSignalBlocker(self._midi_panel):
                 self._midi_panel.set_position(out.new_midi_time)
             self._set_midi_playhead(out.new_midi_time)
+            # No symmetric snap needed: when camera drives, new_midi_time was
+            # computed FROM the frame so set_midi_playhead(new_midi_time)
+            # already lands at exactly the same unix as the camera playhead.
         if out.out_of_range_delta is not None:
             self._show_oor(out.out_of_range_delta, driven_panel)
         else:
