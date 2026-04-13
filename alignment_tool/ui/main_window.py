@@ -6,8 +6,8 @@ from PyQt5.QtWidgets import (
 
 from alignment_tool.core.models import AlignmentState
 from alignment_tool.io.participant_loader import ParticipantLoader
-from alignment_tool.level1_timeline import Level1Widget
-from alignment_tool.level2_view import Level2View
+from alignment_tool.ui.level1_timeline import Level1Widget
+from alignment_tool.ui.level2_view import Level2View
 from alignment_tool.core import persistence
 
 

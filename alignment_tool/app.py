@@ -2,7 +2,7 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from alignment_tool.main_window import MainWindow
+from alignment_tool.ui.main_window import MainWindow
 
 
 def main():
