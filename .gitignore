@@ -6,6 +6,9 @@ __pycache__/
 .claude/
 .superpowers/
 
+# Local example / test data — not versioned
+data/
+
 # Logs
 logs
 *.log
