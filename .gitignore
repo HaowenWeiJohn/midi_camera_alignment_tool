@@ -4,6 +4,7 @@ __pycache__/
 
 # Claude Code
 .claude/
+.superpowers/
 
 # Logs
 logs
