@@ -63,8 +63,3 @@ class AlignmentState:
 
     def clips_with_anchors_count(self) -> int:
         return sum(1 for cf in self.camera_files if cf.alignment_anchors)
-
-    def clear_all_anchors(self):
-        for cf in self.camera_files:
-            cf.alignment_anchors.clear()
-            cf.active_anchor_index = None

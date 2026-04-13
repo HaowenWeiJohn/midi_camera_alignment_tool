@@ -131,6 +131,10 @@ class MidiCanvasWidget(QWidget):
     def current_time(self) -> float:
         return self._current_time
 
+    @property
+    def midi_info(self) -> MidiFileInfo | None:
+        return self._midi_info
+
     def _pitch_to_x(self, pitch: int) -> tuple[float, float]:
         """Convert MIDI pitch to (x, width) in pixels."""
         plot_width = self.width()
@@ -335,12 +339,13 @@ class MidiPanelWidget(QWidget):
         self.position_changed.emit(time_seconds)
 
     def _update_info(self):
-        if self._canvas._midi_info is None:
+        mi = self._canvas.midi_info
+        if mi is None:
             self._info_label.setText("No MIDI loaded")
             return
         t = self._canvas.current_time
-        dur = self._canvas._midi_info.duration
-        sr = self._canvas._midi_info.sample_rate
+        dur = mi.duration
+        sr = mi.sample_rate
         tick = int(t * sr)
         self._info_label.setText(
             f"Time: {t:.3f}s / {dur:.1f}s  |  Tick: {tick}"

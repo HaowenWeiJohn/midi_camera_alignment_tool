@@ -115,3 +115,40 @@ def test_build_anchor_from_markers_without_markers_raises():
     _, _, ctrl = _setup()
     with pytest.raises(MarkersNotSetError):
         ctrl.build_anchor_from_markers()
+
+
+def test_locked_mode_camera_before_midi_gives_oor_delta_positive():
+    # Setup: MIDI starts at 1000, camera starts at 1030.
+    # Camera frame 0 -> camera_unix=1030 -> midi_unix=1030 -> midi_seconds=30 -> in range.
+    # Need a frame that maps to before midi_unix_start=1000.
+    # effective_shift is derivable by the service, 0 with no anchors.
+    # To get OOR, we'd need the camera frame to map to negative midi_seconds - but camera starts at 1030 which is 30s into MIDI.
+    # Build a scenario where camera starts BEFORE MIDI.
+    midi = make_midi_file(filename="m1.mid", unix_start=1050.0, duration=100.0)  # MIDI: 1050->1150
+    cam = make_camera_file(raw_unix_start=1000.0, capture_fps=240.0, duration=60.0)  # Camera: 1000->1060
+    state = make_state(midi_files=[midi], camera_files=[cam])
+    svc = AlignmentService(state)
+    ctrl = Level2Controller(state, svc)
+    ctrl.load_pair(midi_index=0, camera_index=0)
+    ctrl.set_mode(Mode.LOCKED)
+
+    # Frame 0 -> camera_unix=1000 -> midi_unix=1000 -> midi_seconds=-50 -> OOR, delta=+50.
+    out = ctrl.on_camera_position_changed(camera_frame=0)
+    assert out.new_midi_time is None
+    assert out.out_of_range_delta == pytest.approx(50.0)
+
+
+def test_locked_mode_camera_after_midi_gives_oor_delta_negative():
+    # MIDI: 1000->1050 (short), Camera: 1000->1060 (longer).
+    midi = make_midi_file(filename="m1.mid", unix_start=1000.0, duration=50.0)
+    cam = make_camera_file(raw_unix_start=1000.0, capture_fps=240.0, duration=60.0)
+    state = make_state(midi_files=[midi], camera_files=[cam])
+    svc = AlignmentService(state)
+    ctrl = Level2Controller(state, svc)
+    ctrl.load_pair(midi_index=0, camera_index=0)
+    ctrl.set_mode(Mode.LOCKED)
+
+    # Frame at 55s in -> camera_unix=1055 -> midi_unix=1055 -> midi_seconds=55 (MIDI duration 50) -> OOR, delta=-5.
+    out = ctrl.on_camera_position_changed(camera_frame=240 * 55)
+    assert out.new_midi_time is None
+    assert out.out_of_range_delta == pytest.approx(-5.0)

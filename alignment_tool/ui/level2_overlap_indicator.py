@@ -123,12 +123,17 @@ class OverlapIndicatorWidget(QWidget):
         if track == "midi":
             if self._midi_info is None:
                 return
+            # Inverse of engine.midi_seconds_to_unix; clamped to the clip.
             midi_seconds = t - self._midi_info.unix_start
             midi_seconds = max(0.0, min(midi_seconds, self._midi_info.duration))
             self.midi_time_clicked.emit(midi_seconds)
         else:
             if self._camera_info is None:
                 return
+            # Inverse of engine.camera_frame_to_unix with effective_shift applied.
+            # Cannot use engine.midi_unix_to_camera_frame here: it returns None for
+            # OOR, but this widget must clamp to the valid frame range so the user
+            # always lands on a legal frame when dragging past the clip edges.
             camera_unix = t - self._effective_shift
             frame_float = (camera_unix - self._camera_info.raw_unix_start) * self._camera_info.capture_fps
             frame = round(frame_float)

@@ -122,3 +122,26 @@ def out_of_range_delta(
     if camera_unix > camera.raw_unix_end:
         return camera.raw_unix_end - camera_unix  # negative: ended X s ago
     return None
+
+
+def midi_out_of_range_delta(
+    frame: int,
+    effective_shift: float,
+    camera: CameraFileInfo,
+    midi: MidiFileInfo,
+) -> float | None:
+    """If camera frame maps to a moment outside the MIDI file's range, return signed delta in seconds.
+
+    Positive = MIDI file hasn't started yet (starts in X s).
+    Negative = MIDI file already ended (ended X s ago).
+    None = in range.
+    """
+    _check_fps(camera)
+    camera_unix = camera.raw_unix_start + frame / camera.capture_fps
+    midi_unix = camera_unix + effective_shift
+    midi_seconds = midi_unix - midi.unix_start
+    if midi_seconds < 0:
+        return -midi_seconds
+    if midi_seconds > midi.duration:
+        return midi.duration - midi_seconds
+    return None

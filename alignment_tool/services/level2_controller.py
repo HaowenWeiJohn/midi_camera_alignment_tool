@@ -66,7 +66,9 @@ class Level2Controller:
         midi = self._state.midi_files[self._midi_index]
         eff = self._service.effective_shift_for(self._camera_index)
         seconds = engine.camera_frame_to_midi_seconds(camera_frame, eff, cf, midi)
-        return SyncOutput(new_midi_time=seconds, new_camera_frame=None, out_of_range_delta=None)
+        oor = (None if seconds is not None
+               else engine.midi_out_of_range_delta(camera_frame, eff, cf, midi))
+        return SyncOutput(new_midi_time=seconds, new_camera_frame=None, out_of_range_delta=oor)
 
     # --- markers ---
 

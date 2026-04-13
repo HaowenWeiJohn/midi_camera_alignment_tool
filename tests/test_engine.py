@@ -110,3 +110,37 @@ def test_zero_fps_raises_invalid_fps_error():
         engine.compute_anchor_shift(
             make_anchor(), cam, midi, global_shift=0.0,
         )
+
+
+def test_midi_out_of_range_delta_before_midi_is_positive():
+    # Camera frame maps to before MIDI starts.
+    # MIDI starts at unix 1000. Camera starts at unix 990 (before MIDI).
+    # Frame 0 -> camera_unix=990 -> midi_unix=990 -> midi_seconds=-10 -> delta=+10 (MIDI starts in 10s)
+    midi = make_midi_file(unix_start=1000.0, duration=100.0)
+    cam = make_camera_file(raw_unix_start=990.0, capture_fps=240.0, duration=30.0)
+    delta = engine.midi_out_of_range_delta(
+        frame=0, effective_shift=0.0, camera=cam, midi=midi,
+    )
+    assert delta == pytest.approx(10.0)
+
+
+def test_midi_out_of_range_delta_after_midi_is_negative():
+    # MIDI ends at unix 1100. Camera frame that maps to unix 1105 -> MIDI ended 5s ago.
+    midi = make_midi_file(unix_start=1000.0, duration=100.0)
+    cam = make_camera_file(raw_unix_start=1100.0, capture_fps=240.0, duration=60.0)
+    # Frame at 5s into clip -> camera_unix=1105 -> midi_seconds = 105 -> 100-105 = -5
+    delta = engine.midi_out_of_range_delta(
+        frame=240 * 5, effective_shift=0.0, camera=cam, midi=midi,
+    )
+    assert delta == pytest.approx(-5.0)
+
+
+def test_midi_out_of_range_delta_in_range_is_none():
+    # Camera frame within MIDI range -> None.
+    midi = make_midi_file(unix_start=1000.0, duration=100.0)
+    cam = make_camera_file(raw_unix_start=1000.0, capture_fps=240.0, duration=60.0)
+    # Frame at 10s in -> midi_seconds = 10 -> in range.
+    delta = engine.midi_out_of_range_delta(
+        frame=240 * 10, effective_shift=0.0, camera=cam, midi=midi,
+    )
+    assert delta is None
