@@ -4,7 +4,13 @@ No Qt dependency — this module can be tested independently.
 """
 from __future__ import annotations
 
+from alignment_tool.core.errors import InvalidFpsError
 from alignment_tool.core.models import Anchor, CameraFileInfo, MidiFileInfo
+
+
+def _check_fps(camera: CameraFileInfo) -> None:
+    if camera.capture_fps <= 0:
+        raise InvalidFpsError(camera.capture_fps)
 
 
 def compute_anchor_shift(
@@ -19,6 +25,7 @@ def compute_anchor_shift(
                  - (raw_camera_unix_start + camera_frame / capture_fps)
                  - global_shift
     """
+    _check_fps(camera)
     midi_unix_at_anchor = midi.unix_start + anchor.midi_timestamp_seconds
     camera_unix_at_anchor = camera.raw_unix_start + anchor.camera_frame / camera.capture_fps
     return midi_unix_at_anchor - camera_unix_at_anchor - global_shift
@@ -54,6 +61,7 @@ def midi_unix_to_camera_frame(
 
     Returns frame index (rounded to nearest int), or None if out of range.
     """
+    _check_fps(camera)
     camera_unix = midi_unix - effective_shift
     frame_float = (camera_unix - camera.raw_unix_start) * camera.capture_fps
     frame = round(frame_float)
@@ -72,6 +80,7 @@ def camera_frame_to_midi_seconds(
 
     Returns seconds-from-MIDI-file-start, or None if out of range.
     """
+    _check_fps(camera)
     camera_unix = camera.raw_unix_start + frame / camera.capture_fps
     midi_unix = camera_unix + effective_shift
     midi_seconds = midi_unix - midi.unix_start
@@ -82,6 +91,7 @@ def camera_frame_to_midi_seconds(
 
 def camera_frame_to_unix(frame: int, camera: CameraFileInfo) -> float:
     """Convert camera frame index to unix timestamp."""
+    _check_fps(camera)
     return camera.raw_unix_start + frame / camera.capture_fps
 
 
