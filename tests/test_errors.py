@@ -35,3 +35,11 @@ def test_unsupported_schema_version_error_carries_found_and_supported():
     exc = UnsupportedSchemaVersionError(found=99, supported=1)
     assert exc.found == 99
     assert exc.supported == 1
+
+
+def test_fixtures_build():
+    from tests.fixtures import make_state
+    s = make_state()
+    assert s.participant_id == "P042"
+    assert len(s.midi_files) == 1
+    assert len(s.camera_files) == 1
