@@ -1,7 +1,7 @@
 """Level 2: Alignment Detail View — side-by-side MIDI + camera panels."""
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QSignalBlocker
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel,
@@ -10,9 +10,14 @@ from PyQt5.QtWidgets import (
 )
 
 from alignment_tool.core.models import AlignmentState, MidiFileInfo, CameraFileInfo, Anchor
+from alignment_tool.core.errors import (
+    MarkersNotSetError, AnchorsExistError, UnknownMidiFileError,
+)
 from alignment_tool.io.midi_adapter import MidiAdapter
 from alignment_tool.services.alignment_service import AlignmentService
-from alignment_tool.services.level2_controller import Level2Controller
+from alignment_tool.services.level2_controller import (
+    Level2Controller, Mode, SyncOutput,
+)
 from alignment_tool.ui.level2_midi_panel import MidiPanelWidget
 from alignment_tool.ui.level2_camera_panel import CameraPanelWidget
 from alignment_tool.ui.level2_anchor_table import AnchorTableWidget
@@ -31,18 +36,10 @@ class Level2View(QWidget):
         self._state: AlignmentState | None = None
         self._service: AlignmentService | None = None
         self._controller: Level2Controller | None = None
-        self._state_via_attach: AlignmentState | None = None
         self._midi_index: int = 0
         self._camera_index: int = 0
         self._midi_adapter: MidiAdapter | None = None
-
-        # Mode
-        self._locked: bool = False
-        self._active_panel: str = "camera"  # which panel is the "driver"
-
-        # Markers
-        self._midi_marker: tuple[str, float] | None = None  # (filename, seconds_from_start)
-        self._camera_marker: int | None = None  # frame index
+        self._active_panel: str = "camera"  # still view-local: which panel last had focus
 
         self._build_ui()
 
@@ -138,30 +135,30 @@ class Level2View(QWidget):
         service: AlignmentService,
         controller: Level2Controller,
     ) -> None:
-        self._state_via_attach = state       # temporary field; Task 13 consolidates
+        self._state = state
         self._service = service
         self._controller = controller
 
-    def load_pair(self, state: AlignmentState, midi_index: int, camera_index: int):
+    def load_pair(self, midi_index: int, camera_index: int) -> None:
         """Load a MIDI + camera pair for alignment."""
-        self._state = state
+        if self._controller is None or self._state is None:
+            return
         self._midi_index = midi_index
         self._camera_index = camera_index
-        self._midi_marker = None
-        self._camera_marker = None
+        self._controller.load_pair(midi_index, camera_index)
         self._update_marker_ui()
 
         # Populate combos
         self._midi_combo.blockSignals(True)
         self._midi_combo.clear()
-        for mf in state.midi_files:
+        for mf in self._state.midi_files:
             self._midi_combo.addItem(mf.filename)
         self._midi_combo.setCurrentIndex(midi_index)
         self._midi_combo.blockSignals(False)
 
         self._camera_combo.blockSignals(True)
         self._camera_combo.clear()
-        for cf in state.camera_files:
+        for cf in self._state.camera_files:
             self._camera_combo.addItem(cf.filename)
         self._camera_combo.setCurrentIndex(camera_index)
         self._camera_combo.blockSignals(False)
@@ -201,6 +198,7 @@ class Level2View(QWidget):
         self._camera_panel.load_video(cf)
         self._camera_panel.show_normal()
         self._refresh_anchor_table()
+        self._anchor_table.set_context(self._state, self._service, self._camera_index)
 
     def _on_midi_combo_changed(self, index: int):
         if index >= 0:
@@ -215,11 +213,14 @@ class Level2View(QWidget):
     # --- Mode ---
 
     def _toggle_mode(self):
-        self._locked = self._mode_btn.isChecked()
-        self._mode_btn.setText(f"Mode: {'Locked' if self._locked else 'Independent'}")
+        if self._controller is None:
+            return
+        new_mode = Mode.LOCKED if self._mode_btn.isChecked() else Mode.FREE
+        self._controller.set_mode(new_mode)
+        self._mode_btn.setText(f"Mode: {'Locked' if new_mode == Mode.LOCKED else 'Independent'}")
         self._update_status_line()
 
-        if self._locked:
+        if new_mode == Mode.LOCKED:
             # Anchor lock rule: if active anchor, switch MIDI to anchor's file
             self._apply_anchor_lock_rule()
             # Sync panels when entering locked mode (even without anchor)
@@ -235,11 +236,12 @@ class Level2View(QWidget):
 
     def _apply_anchor_lock_rule(self):
         """When locked + anchor active, auto-switch MIDI file to anchor's reference."""
-        if self._state is None:
+        if self._state is None or self._controller is None:
             return
         cf = self._state.camera_files[self._camera_index]
         anchor = cf.get_active_anchor()
-        if anchor is not None and self._locked:
+        locked = self._controller.mode == Mode.LOCKED
+        if anchor is not None and locked:
             # Find MIDI file index matching anchor's midi_filename
             target_index = None
             for i, mf in enumerate(self._state.midi_files):
@@ -258,6 +260,9 @@ class Level2View(QWidget):
             # Only reload if switching to a different MIDI file
             if target_index != self._midi_index:
                 self._load_midi_file(target_index)
+                # Notify controller of the MIDI-file switch so its sync math uses it.
+                self._controller.load_pair(target_index, self._camera_index)
+                self._controller.set_mode(Mode.LOCKED)
                 # Navigate to the anchor's position in the new file
                 self._midi_panel.set_position(anchor.midi_timestamp_seconds)
 
@@ -269,14 +274,12 @@ class Level2View(QWidget):
     # --- Locked mode navigation ---
 
     def _get_effective_shift(self) -> float:
-        if self._state is None:
+        if self._service is None:
             return 0.0
-        midi_lookup = {mf.filename: mf for mf in self._state.midi_files}
-        cf = self._state.camera_files[self._camera_index]
-        return engine.get_effective_shift_for_camera(cf, self._state.global_shift_seconds, midi_lookup)
+        return self._service.effective_shift_for(self._camera_index)
 
     def _on_midi_position_changed(self, time_seconds: float):
-        if self._state is None:
+        if self._controller is None or self._state is None:
             return
         mf = self._state.midi_files[self._midi_index]
         midi_unix = mf.unix_start + time_seconds
@@ -284,26 +287,11 @@ class Level2View(QWidget):
         # Always update MIDI indicator (works in both modes)
         self._overlap.set_midi_playhead(midi_unix)
 
-        if not self._locked:
-            return
-
-        # Locked mode: sync camera panel
-        cf = self._state.camera_files[self._camera_index]
-        eff = self._get_effective_shift()
-        frame = engine.midi_unix_to_camera_frame(midi_unix, eff, cf)
-
-        if frame is not None:
-            self._camera_panel.show_normal()
-            self._camera_panel.set_frame(frame)
-        else:
-            delta = engine.out_of_range_delta(midi_unix, eff, cf)
-            if delta is not None and delta > 0:
-                self._camera_panel.show_out_of_range(f"Camera clip starts in {delta:.2f} s")
-            elif delta is not None:
-                self._camera_panel.show_out_of_range(f"Camera clip ended {abs(delta):.2f} s ago")
+        out = self._controller.on_midi_position_changed(time_seconds)
+        self._apply_sync_output(out, driven_panel="midi")
 
     def _on_camera_position_changed(self, frame: int):
-        if self._state is None:
+        if self._controller is None or self._state is None:
             return
         cf = self._state.camera_files[self._camera_index]
         eff = self._get_effective_shift()
@@ -312,34 +300,59 @@ class Level2View(QWidget):
         # Always update camera indicator (works in both modes)
         self._overlap.set_camera_playhead(camera_unix + eff)
 
-        if not self._locked:
-            return
+        out = self._controller.on_camera_position_changed(frame)
+        self._apply_sync_output(out, driven_panel="camera")
 
-        # Locked mode: sync MIDI panel
-        mf = self._state.midi_files[self._midi_index]
-        midi_seconds = engine.camera_frame_to_midi_seconds(frame, eff, cf, mf)
+    def _apply_sync_output(self, out: SyncOutput, driven_panel: str = "") -> None:
+        """Render a controller SyncOutput onto the panels.
 
-        if midi_seconds is not None:
+        Feedback-loop safe via QSignalBlocker around mirrored ``set_*`` calls.
+        ``driven_panel`` indicates which panel triggered the update so that OOR
+        display targets the mirrored (other) panel.
+        """
+        if out.new_camera_frame is not None:
+            self._camera_panel.show_normal()
+            with QSignalBlocker(self._camera_panel):
+                self._camera_panel.set_frame(out.new_camera_frame)
+        if out.new_midi_time is not None:
             self._midi_panel.show_normal()
-            self._midi_panel.set_position(midi_seconds)
+            with QSignalBlocker(self._midi_panel):
+                self._midi_panel.set_position(out.new_midi_time)
+        if out.out_of_range_delta is not None:
+            self._show_oor(out.out_of_range_delta, driven_panel)
         else:
-            midi_unix = camera_unix + eff
-            midi_seconds_raw = midi_unix - mf.unix_start
-            if midi_seconds_raw < 0:
-                self._midi_panel.show_out_of_range(f"MIDI file starts in {abs(midi_seconds_raw):.2f} s")
+            self._clear_oor(driven_panel)
+
+    def _show_oor(self, delta: float, driven_panel: str) -> None:
+        """Show an out-of-range message on the mirrored panel."""
+        if driven_panel == "midi":
+            if delta > 0:
+                self._camera_panel.show_out_of_range(f"Camera clip starts in {delta:.2f} s")
             else:
-                self._midi_panel.show_out_of_range(f"MIDI file ended {midi_seconds_raw - mf.duration:.2f} s ago")
+                self._camera_panel.show_out_of_range(f"Camera clip ended {abs(delta):.2f} s ago")
+        else:
+            if delta > 0:
+                self._midi_panel.show_out_of_range(f"MIDI file starts in {delta:.2f} s")
+            else:
+                self._midi_panel.show_out_of_range(f"MIDI file ended {abs(delta):.2f} s ago")
+
+    def _clear_oor(self, driven_panel: str = "") -> None:
+        """No-op: panels get show_normal() restored as part of set_frame/set_position paths."""
+        # When a valid frame/time is produced, `_apply_sync_output` already calls
+        # show_normal() before mirroring. When nothing is produced (e.g. FREE mode),
+        # there is no OOR to clear. Keep this as an explicit hook for clarity.
+        return
 
     def _sync_from_camera(self):
         """Sync MIDI panel to current camera position using effective shift."""
-        if not self._locked or self._state is None:
+        if self._controller is None or self._controller.mode != Mode.LOCKED or self._state is None:
             return
         frame = self._camera_panel.current_frame
         self._on_camera_position_changed(frame)
 
     def _sync_from_midi(self):
         """Sync camera panel to current MIDI position using effective shift."""
-        if not self._locked or self._state is None:
+        if self._controller is None or self._controller.mode != Mode.LOCKED or self._state is None:
             return
         t = self._midi_panel.current_time
         self._on_midi_position_changed(t)
@@ -347,36 +360,39 @@ class Level2View(QWidget):
     # --- Markers ---
 
     def _mark_midi(self):
-        if self._state is None:
+        if self._controller is None:
             return
-        mf = self._state.midi_files[self._midi_index]
-        self._midi_marker = (mf.filename, self._midi_panel.current_time)
+        self._controller.mark_midi(self._midi_panel.current_time)
         self._update_marker_ui()
         self._flash_label(self._midi_marker_label)
 
     def _mark_camera(self):
-        self._camera_marker = self._camera_panel.current_frame
+        if self._controller is None:
+            return
+        self._controller.mark_camera(self._camera_panel.current_frame)
         self._update_marker_ui()
         self._flash_label(self._camera_marker_label)
 
     def _update_marker_ui(self):
-        if self._midi_marker:
-            fname, t = self._midi_marker
-            self._midi_marker_label.setText(f"MIDI mark: {fname} @ {t:.3f}s")
+        if self._controller is None or self._state is None:
+            return
+        midi_m = self._controller.midi_marker
+        cam_m = self._controller.camera_marker
+
+        if midi_m is not None:
+            mf = self._state.midi_files[self._midi_index]
+            self._midi_marker_label.setText(f"MIDI mark: {mf.filename} @ {midi_m:.3f}s")
         else:
             self._midi_marker_label.setText("MIDI mark: (none)")
 
-        if self._camera_marker is not None:
-            cf = self._state.camera_files[self._camera_index] if self._state else None
-            if cf:
-                time_s = self._camera_marker / cf.capture_fps
-                self._camera_marker_label.setText(f"Camera mark: frame {self._camera_marker} ({time_s:.3f}s)")
-            else:
-                self._camera_marker_label.setText(f"Camera mark: frame {self._camera_marker}")
+        if cam_m is not None:
+            cf = self._state.camera_files[self._camera_index]
+            time_s = cam_m / cf.capture_fps
+            self._camera_marker_label.setText(f"Camera mark: frame {cam_m} ({time_s:.3f}s)")
         else:
             self._camera_marker_label.setText("Camera mark: (none)")
 
-        both_set = self._midi_marker is not None and self._camera_marker is not None
+        both_set = midi_m is not None and cam_m is not None
         self._compute_shift_btn.setEnabled(both_set)
         self._add_anchor_btn.setEnabled(both_set)
         if both_set:
@@ -387,55 +403,59 @@ class Level2View(QWidget):
             self._add_anchor_btn.setToolTip("Set markers first: press M on MIDI panel, C on camera panel")
 
     def _on_compute_shift(self):
-        if self._state is None or self._midi_marker is None or self._camera_marker is None:
+        if self._controller is None or self._service is None:
             return
-        midi_filename, midi_seconds = self._midi_marker
-        midi_file = self._state.midi_file_by_name(midi_filename)
-        if midi_file is None:
+        try:
+            new_shift = self._controller.compute_shift_from_markers()
+        except MarkersNotSetError as exc:
+            QMessageBox.warning(self, "Markers not set", str(exc))
             return
-        cf = self._state.camera_files[self._camera_index]
 
-        midi_unix = engine.midi_seconds_to_unix(midi_seconds, midi_file)
-        camera_unix = engine.camera_frame_to_unix(self._camera_marker, cf)
-        shift = engine.compute_global_shift_from_markers(midi_unix, camera_unix)
-
-        result = QMessageBox.question(
+        reply = QMessageBox.question(
             self, "Apply Global Shift",
-            f"Computed global shift: {shift:.4f} s\n\nApply this as the global shift?",
+            f"Computed global shift: {new_shift:.4f} s\n\nApply this as the global shift?",
             QMessageBox.Yes | QMessageBox.No,
         )
-        if result == QMessageBox.Yes:
-            # Check existing anchors
-            anchor_count = self._state.total_anchor_count()
-            if anchor_count > 0:
-                confirm = QMessageBox.warning(
-                    self, "Confirm",
-                    f"This will remove all {anchor_count} anchor(s). Continue?",
-                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
-                )
-                if confirm != QMessageBox.Yes:
-                    return
-                self._state.clear_all_anchors()
+        if reply != QMessageBox.Yes:
+            return
 
-            self._state.global_shift_seconds = shift
-            self._refresh_anchor_table()
-            self._update_overlap()
-            self.state_modified.emit()
+        try:
+            self._service.set_global_shift(new_shift, clear_anchors_if_needed=False)
+        except AnchorsExistError as exc:
+            reply = QMessageBox.warning(
+                self, "Confirm",
+                f"This will remove all {exc.count} anchor(s). Continue?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            )
+            if reply != QMessageBox.Yes:
+                return
+            self._service.set_global_shift(new_shift, clear_anchors_if_needed=True)
+
+        self._controller.clear_markers()
+        self._update_marker_ui()
+        self._refresh_anchor_table()
+        self._update_overlap()
+        self.state_modified.emit()
 
     def _on_add_anchor(self):
-        if self._state is None or self._midi_marker is None or self._camera_marker is None:
+        if self._controller is None or self._service is None:
             return
         label, ok = QInputDialog.getText(self, "Anchor Label", "Optional label for this anchor:")
         if not ok:
             return
-        midi_filename, midi_seconds = self._midi_marker
-        anchor = Anchor(
-            midi_filename=midi_filename,
-            midi_timestamp_seconds=midi_seconds,
-            camera_frame=self._camera_marker,
-            label=label,
-        )
-        self._anchor_table.add_anchor(anchor)
+        try:
+            anchor = self._controller.build_anchor_from_markers(label=label)
+        except MarkersNotSetError as exc:
+            QMessageBox.warning(self, "Markers not set", str(exc))
+            return
+        try:
+            idx = self._service.add_anchor(self._camera_index, anchor)
+        except UnknownMidiFileError as exc:
+            QMessageBox.warning(self, "Unknown MIDI file", str(exc))
+            return
+        self._refresh_anchor_table()
+        self._controller.clear_markers()
+        self._update_marker_ui()
         self.state_modified.emit()
 
     # --- Anchors ---
@@ -516,9 +536,10 @@ class Level2View(QWidget):
         self._midi_panel.set_position(midi_seconds)
 
         # Position camera panel at overlap start
-        camera_unix = overlap_start_unix - eff
-        frame = round((camera_unix - cf.raw_unix_start) * cf.capture_fps)
-        frame = max(0, min(frame, cf.total_frames - 1))
+        frame = engine.midi_unix_to_camera_frame(overlap_start_unix, eff, cf)
+        if frame is None:
+            # Overlap exists but rounding pushed us out; clamp to valid range.
+            frame = max(0, min(cf.total_frames - 1, 0))
         self._camera_panel.show_normal()
         self._camera_panel.set_frame(frame)
 
@@ -547,7 +568,9 @@ class Level2View(QWidget):
         shortcut(Qt.Key_Escape, self.back_requested.emit)
 
     def _shortcut_add_anchor(self):
-        if self._midi_marker is not None and self._camera_marker is not None:
+        if self._controller is None:
+            return
+        if self._controller.midi_marker is not None and self._controller.camera_marker is not None:
             self._on_add_anchor()
 
     def _step_active(self, direction: int, large: bool):
@@ -570,7 +593,8 @@ class Level2View(QWidget):
         self._update_status_line()
 
     def _update_status_line(self):
-        mode = "Locked" if self._locked else "Independent"
+        locked = self._controller is not None and self._controller.mode == Mode.LOCKED
+        mode = "Locked" if locked else "Independent"
         active = "MIDI" if self._active_panel == "midi" else "Camera"
         self._status_line.setText(
             f"{mode} Mode  |  Active: {active} (Tab to switch)  |  "

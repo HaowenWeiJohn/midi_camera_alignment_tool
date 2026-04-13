@@ -45,6 +45,7 @@ class MainWindow(QMainWindow):
         # Level 1: Timeline overview
         self._level1 = Level1Widget()
         self._level1.pair_selected.connect(self._on_pair_selected)
+        self._level1.state_modified.connect(self._on_state_modified)
         self._stack.addWidget(self._level1)
 
         # Level 2: Alignment detail view
@@ -112,7 +113,7 @@ class MainWindow(QMainWindow):
         """Handle drill-down from Level 1 to Level 2."""
         if self._state is None:
             return
-        self._level2.load_pair(self._state, midi_index, camera_index)
+        self._level2.load_pair(midi_index, camera_index)
         self._stack.setCurrentWidget(self._level2)
         self._level2.setFocus()
         mf = self._state.midi_files[midi_index]

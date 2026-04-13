@@ -7,8 +7,10 @@ from PyQt5.QtWidgets import (
     QPushButton, QHeaderView, QAbstractItemView, QLabel,
 )
 
-from alignment_tool.core.models import CameraFileInfo, MidiFileInfo, Anchor
+from alignment_tool.core.models import AlignmentState, CameraFileInfo, MidiFileInfo, Anchor
 from alignment_tool.core.engine import compute_anchor_shift
+from alignment_tool.core.errors import AlignmentToolError
+from alignment_tool.services.alignment_service import AlignmentService
 
 
 class AnchorTableWidget(QWidget):
@@ -23,6 +25,9 @@ class AnchorTableWidget(QWidget):
         self._camera_info: CameraFileInfo | None = None
         self._midi_lookup: dict[str, MidiFileInfo] = {}
         self._global_shift: float = 0.0
+        self._state: AlignmentState | None = None
+        self._service: AlignmentService | None = None
+        self._camera_index: int = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
@@ -58,6 +63,21 @@ class AnchorTableWidget(QWidget):
         self._camera_info = camera_info
         self._midi_lookup = midi_lookup
         self._global_shift = global_shift
+        self._refresh()
+
+    def set_context(
+        self,
+        state: AlignmentState | None,
+        service: AlignmentService | None,
+        camera_index: int,
+    ) -> None:
+        """Inject the service and camera_index so mutations go through AlignmentService."""
+        self._state = state
+        self._service = service
+        self._camera_index = camera_index
+
+    def refresh(self) -> None:
+        """Public re-render hook used by Level2View after external mutations."""
         self._refresh()
 
     def _refresh(self):
@@ -101,39 +121,29 @@ class AnchorTableWidget(QWidget):
             self._table.setItem(i, 6, active_item)
 
     def _on_cell_clicked(self, row: int, col: int):
-        if self._camera_info is None:
+        if self._camera_info is None or self._service is None:
             return
         if col == 6:  # Active column — toggle
             if self._camera_info.active_anchor_index == row:
-                self._camera_info.active_anchor_index = None
+                self._service.set_active_anchor(self._camera_index, None)
                 self.anchor_deactivated.emit()
             else:
-                self._camera_info.active_anchor_index = row
+                self._service.set_active_anchor(self._camera_index, row)
                 self.anchor_activated.emit(row)
             self._refresh()
 
     def _on_delete(self):
-        if self._camera_info is None:
+        if self._camera_info is None or self._service is None:
             return
         rows = self._table.selectionModel().selectedRows()
         if not rows:
             return
         idx = rows[0].row()
-        if idx < len(self._camera_info.alignment_anchors):
-            # Adjust active_anchor_index
-            if self._camera_info.active_anchor_index is not None:
-                if self._camera_info.active_anchor_index == idx:
-                    self._camera_info.active_anchor_index = None
-                elif self._camera_info.active_anchor_index > idx:
-                    self._camera_info.active_anchor_index -= 1
-
-            del self._camera_info.alignment_anchors[idx]
-            self.anchor_deleted.emit(idx)
-            self._refresh()
-
-    def add_anchor(self, anchor: Anchor):
-        """Add a new anchor to the current camera clip."""
-        if self._camera_info is None:
+        if idx >= len(self._camera_info.alignment_anchors):
             return
-        self._camera_info.alignment_anchors.append(anchor)
+        try:
+            self._service.delete_anchor(self._camera_index, idx)
+        except AlignmentToolError:
+            return
+        self.anchor_deleted.emit(idx)
         self._refresh()
