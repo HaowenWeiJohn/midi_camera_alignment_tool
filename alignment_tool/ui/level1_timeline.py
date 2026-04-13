@@ -3,10 +3,11 @@ from __future__ import annotations
 
 from PyQt5.QtCore import Qt, QRectF, pyqtSignal, QPointF
 from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QFontMetrics, QBrush
-from PyQt5.QtWidgets import QWidget, QToolTip, QVBoxLayout, QHBoxLayout, QLabel, QDoubleSpinBox, QPushButton
+from PyQt5.QtWidgets import QWidget, QToolTip, QVBoxLayout, QHBoxLayout, QLabel, QDoubleSpinBox, QPushButton, QMessageBox
 
 from alignment_tool.core.models import AlignmentState
 from alignment_tool.core.engine import get_effective_shift_for_camera
+from alignment_tool.core.errors import AnchorsExistError
 from alignment_tool.services.alignment_service import AlignmentService
 
 
@@ -346,6 +347,7 @@ class Level1Widget(QWidget):
     """Level 1 container: global shift controls + timeline canvas."""
 
     pair_selected = pyqtSignal(int, int)
+    state_modified = pyqtSignal()  # any alignment state change
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -392,31 +394,25 @@ class Level1Widget(QWidget):
         self._canvas.refresh()
 
     def _on_apply_shift(self):
-        if self._state is None:
+        if self._state is None or self._service is None:
             return
-        new_shift = self._shift_spin.value()
-        if new_shift == self._state.global_shift_seconds:
-            return
-
-        # Check for existing anchors
-        anchor_count = self._state.total_anchor_count()
-        clip_count = self._state.clips_with_anchors_count()
-        if anchor_count > 0:
-            from PyQt5.QtWidgets import QMessageBox
-            result = QMessageBox.warning(
-                self, "Confirm Global Shift Change",
-                f"Changing global shift will remove all {anchor_count} anchor(s) "
-                f"across {clip_count} camera clip(s).\n\nContinue?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
+        value = self._shift_spin.value()
+        try:
+            self._service.set_global_shift(value, clear_anchors_if_needed=False)
+        except AnchorsExistError as exc:
+            reply = QMessageBox.question(
+                self, "Anchors exist",
+                f"{exc.count} anchor(s) exist. Applying a new global shift will "
+                "clear all anchors across all clips. Continue?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
             )
-            if result != QMessageBox.Yes:
+            if reply != QMessageBox.Yes:
                 self._shift_spin.setValue(self._state.global_shift_seconds)
                 return
-            self._state.clear_all_anchors()
+            self._service.set_global_shift(value, clear_anchors_if_needed=True)
 
-        self._state.global_shift_seconds = new_shift
-        self._canvas.refresh()
+        self.refresh()
+        self.state_modified.emit()
 
     def _on_open_pair(self):
         mi = self._canvas.selected_midi_index
