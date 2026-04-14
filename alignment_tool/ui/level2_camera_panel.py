@@ -142,10 +142,6 @@ class CameraPanelWidget(QWidget):
             self.user_interacted.emit()
         super().mousePressEvent(event)
 
-    def hideEvent(self, event):
-        self.cleanup()
-        super().hideEvent(event)
-
     def closeEvent(self, event):
         self.cleanup()
         super().closeEvent(event)
