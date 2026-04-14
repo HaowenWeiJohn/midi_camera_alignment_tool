@@ -32,15 +32,15 @@ class AnchorTableWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
 
-        header_layout = QHBoxLayout()
-        header_layout.addWidget(QLabel("Alignment Anchors"))
-        header_layout.addStretch()
+        self._header_layout = QHBoxLayout()
+        self._header_layout.addWidget(QLabel("Alignment Anchors"))
+        self._header_layout.addStretch()
 
         self._delete_btn = QPushButton("Delete Selected")
         self._delete_btn.clicked.connect(self._on_delete)
         self._delete_btn.setEnabled(False)
-        header_layout.addWidget(self._delete_btn)
-        layout.addLayout(header_layout)
+        self._header_layout.addWidget(self._delete_btn)
+        layout.addLayout(self._header_layout)
 
         self._table = QTableWidget(0, 7)
         self._table.setHorizontalHeaderLabels([
@@ -58,6 +58,14 @@ class AnchorTableWidget(QWidget):
             lambda: self._delete_btn.setEnabled(bool(self._table.selectedItems()))
         )
         layout.addWidget(self._table)
+
+    def add_header_action(self, widget: QWidget) -> None:
+        """Insert a widget into the header row between the label and the stretch.
+
+        Resulting order: [label, <inserted widgets...>, stretch, Delete Selected].
+        """
+        insert_index = self._header_layout.count() - 2  # before the stretch
+        self._header_layout.insertWidget(insert_index, widget)
 
     def set_data(self, camera_info: CameraFileInfo, midi_lookup: dict[str, MidiFileInfo], global_shift: float):
         self._camera_info = camera_info

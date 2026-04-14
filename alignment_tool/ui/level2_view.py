@@ -72,6 +72,13 @@ class Level2View(QWidget):
         top_bar.addWidget(self._mode_btn)
 
         top_bar.addStretch()
+
+        self._compute_shift_btn = QPushButton("Compute Global Shift")
+        self._compute_shift_btn.setEnabled(False)
+        self._compute_shift_btn.setToolTip("Set markers first: press M on MIDI panel, C on camera panel")
+        self._compute_shift_btn.clicked.connect(self._on_compute_shift)
+        top_bar.addWidget(self._compute_shift_btn)
+
         layout.addLayout(top_bar)
 
         # Status line: mode + active panel + hints
@@ -86,39 +93,47 @@ class Level2View(QWidget):
         self._overlap.camera_frame_clicked.connect(self._on_overlap_camera_clicked)
         layout.addWidget(self._overlap)
 
-        # Main panels (splitter)
-        splitter = QSplitter(Qt.Horizontal)
+        # Main panels + per-panel marker readouts. Each panel sits in a column
+        # container so the marker label lives directly under the panel it
+        # describes. The marker labels still belong to Level2View, so
+        # _update_marker_ui and _flash_label keep working unchanged.
+        self._midi_marker_label = QLabel("MIDI mark: (none)")
+        self._midi_marker_label.setAlignment(Qt.AlignCenter)
+        self._camera_marker_label = QLabel("Camera mark: (none)")
+        self._camera_marker_label.setAlignment(Qt.AlignCenter)
+
         self._midi_panel = MidiPanelWidget()
         self._camera_panel = CameraPanelWidget()
-        splitter.addWidget(self._midi_panel)
-        splitter.addWidget(self._camera_panel)
+
+        midi_col = QWidget()
+        midi_col_layout = QVBoxLayout(midi_col)
+        midi_col_layout.setContentsMargins(0, 0, 0, 0)
+        midi_col_layout.setSpacing(2)
+        midi_col_layout.addWidget(self._midi_panel, stretch=1)
+        midi_col_layout.addWidget(self._midi_marker_label)
+
+        camera_col = QWidget()
+        camera_col_layout = QVBoxLayout(camera_col)
+        camera_col_layout.setContentsMargins(0, 0, 0, 0)
+        camera_col_layout.setSpacing(2)
+        camera_col_layout.addWidget(self._camera_panel, stretch=1)
+        camera_col_layout.addWidget(self._camera_marker_label)
+
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(midi_col)
+        splitter.addWidget(camera_col)
         splitter.setSizes([500, 500])
         layout.addWidget(splitter, stretch=1)
 
-        # Marker display + buttons
-        marker_layout = QHBoxLayout()
-        self._midi_marker_label = QLabel("MIDI mark: (none)")
-        self._camera_marker_label = QLabel("Camera mark: (none)")
-        marker_layout.addWidget(self._midi_marker_label)
-        marker_layout.addWidget(self._camera_marker_label)
-
-        self._compute_shift_btn = QPushButton("Compute Global Shift")
-        self._compute_shift_btn.setEnabled(False)
-        self._compute_shift_btn.setToolTip("Set markers first: press M on MIDI panel, C on camera panel")
-        self._compute_shift_btn.clicked.connect(self._on_compute_shift)
-        marker_layout.addWidget(self._compute_shift_btn)
-
+        # Add Anchor lives with the anchor table it mutates (inserted below).
         self._add_anchor_btn = QPushButton("Add Anchor (A)")
         self._add_anchor_btn.setEnabled(False)
         self._add_anchor_btn.setToolTip("Set markers first: press M on MIDI panel, C on camera panel")
         self._add_anchor_btn.clicked.connect(self._on_add_anchor)
-        marker_layout.addWidget(self._add_anchor_btn)
-
-        marker_layout.addStretch()
-        layout.addLayout(marker_layout)
 
         # Anchor table
         self._anchor_table = AnchorTableWidget()
+        self._anchor_table.add_header_action(self._add_anchor_btn)
         self._anchor_table.anchor_activated.connect(self._on_anchor_activated)
         self._anchor_table.anchor_deactivated.connect(self._on_anchor_deactivated)
         self._anchor_table.anchor_deleted.connect(self._on_anchor_deleted)
@@ -128,6 +143,11 @@ class Level2View(QWidget):
         # Connect panel position signals
         self._midi_panel.position_changed.connect(self._on_midi_position_changed)
         self._camera_panel.position_changed.connect(self._on_camera_position_changed)
+
+        # Auto-activate the panel the user is directly interacting with. Only
+        # fires from mouse/wheel events, never from programmatic navigation.
+        self._midi_panel.user_interacted.connect(lambda: self._set_active_panel("midi"))
+        self._camera_panel.user_interacted.connect(lambda: self._set_active_panel("camera"))
 
         # Keyboard shortcuts (work regardless of which child widget has focus)
         self._setup_shortcuts()
@@ -176,6 +196,12 @@ class Level2View(QWidget):
             return
         mf = self._state.midi_files[index]
         self._midi_index = index
+        # Keep the controller's indices aligned with the view and refresh the
+        # marker labels (load_pair clears markers). Covers initial drill-down,
+        # combo change, and anchor-lock reload in one place.
+        if self._controller is not None:
+            self._controller.load_pair(self._midi_index, self._camera_index)
+            self._update_marker_ui()
         self._midi_adapter = MidiAdapter(mf.file_path)
         self._midi_panel.load_midi(mf, self._midi_adapter)
         self._midi_panel.show_normal()
@@ -190,6 +216,9 @@ class Level2View(QWidget):
             return
         cf = self._state.camera_files[index]
         self._camera_index = index
+        if self._controller is not None:
+            self._controller.load_pair(self._midi_index, self._camera_index)
+            self._update_marker_ui()
         self._camera_panel.load_video(cf)
         self._camera_panel.show_normal()
         self._refresh_anchor_table()
@@ -198,11 +227,15 @@ class Level2View(QWidget):
     def _on_midi_combo_changed(self, index: int):
         if index >= 0:
             self._load_midi_file(index)
+            if self._controller is not None and self._controller.mode == Mode.LOCKED:
+                self._sync_from_camera()
             self._update_overlap()
 
     def _on_camera_combo_changed(self, index: int):
         if index >= 0:
             self._load_camera_file(index)
+            if self._controller is not None and self._controller.mode == Mode.LOCKED:
+                self._sync_from_camera()
             self._update_overlap()
 
     # --- Mode ---
@@ -310,6 +343,10 @@ class Level2View(QWidget):
     def _on_midi_position_changed(self, time_seconds: float):
         if self._controller is None or self._state is None:
             return
+        # User is actively driving MIDI — restore its normal display in case a
+        # prior sync left it in OOR. `_apply_sync_output` only restores the
+        # mirrored panel, so the driving side needs this explicit call.
+        self._midi_panel.show_normal()
         # Always update MIDI indicator (works in both modes)
         self._set_midi_playhead(time_seconds)
 
@@ -319,6 +356,9 @@ class Level2View(QWidget):
     def _on_camera_position_changed(self, frame: int):
         if self._controller is None or self._state is None:
             return
+        # Symmetric to `_on_midi_position_changed`: the driving camera panel
+        # must clear any stale OOR visual when the user navigates it.
+        self._camera_panel.show_normal()
         # Always update camera indicator (works in both modes)
         self._set_camera_playhead(frame)
 
@@ -520,11 +560,13 @@ class Level2View(QWidget):
 
     def _on_overlap_midi_clicked(self, midi_seconds: float):
         """User clicked/dragged on the MIDI track of the navigation bar."""
+        self._set_active_panel("midi")
         self._midi_panel.show_normal()
         self._midi_panel.set_position(midi_seconds)
 
     def _on_overlap_camera_clicked(self, frame: int):
         """User clicked/dragged on the camera track of the navigation bar."""
+        self._set_active_panel("camera")
         self._camera_panel.show_normal()
         self._camera_panel.set_frame(frame)
 
@@ -617,14 +659,27 @@ class Level2View(QWidget):
             self._camera_panel.step(frames)
 
     def _switch_active_panel(self):
-        self._active_panel = "camera" if self._active_panel == "midi" else "midi"
+        self._set_active_panel("camera" if self._active_panel == "midi" else "midi")
+
+    def _set_active_panel(self, name: str) -> None:
+        """Single entry point for changing which panel arrow keys drive."""
+        if self._active_panel == name:
+            return
+        self._active_panel = name
         self._update_panel_focus_indicator()
 
     def _update_panel_focus_indicator(self):
-        midi_style = "border: 2px solid #4488ff;" if self._active_panel == "midi" else "border: 1px solid #555;"
-        cam_style = "border: 2px solid #ff8844;" if self._active_panel == "camera" else "border: 1px solid #555;"
-        self._midi_panel.setStyleSheet(midi_style)
-        self._camera_panel.setStyleSheet(cam_style)
+        # Constant border width avoids a 1-px content shift on activation.
+        # Object-name selectors scope the rule to each panel, so the border
+        # doesn't cascade to child widgets (canvas, labels, counter).
+        midi_color = "#4488ff" if self._active_panel == "midi" else "#555"
+        cam_color = "#ff8844" if self._active_panel == "camera" else "#555"
+        self._midi_panel.setStyleSheet(
+            f"QWidget#midiPanel {{ border: 2px solid {midi_color}; }}"
+        )
+        self._camera_panel.setStyleSheet(
+            f"QWidget#cameraPanel {{ border: 2px solid {cam_color}; }}"
+        )
         self._update_status_line()
 
     def _update_status_line(self):
@@ -647,13 +702,15 @@ class Level2View(QWidget):
         label stuck dark after rapid repeated C/M presses. The marker labels'
         normal state is an empty stylesheet (``_update_marker_ui`` only touches
         text, never style), so we restore unconditionally to ``""``.
+
+        Color-only: no padding / font-weight changes. The labels now sit under
+        panels that hold ``stretch=1`` content; any sizeHint change here would
+        steal pixels from the panel above and make it repaint twice per flash.
         """
         existing = self._flash_timers.get(label)
         if existing is not None:
             existing.stop()
-        label.setStyleSheet(
-            "background-color: #446; color: white; font-weight: bold; padding: 2px;"
-        )
+        label.setStyleSheet("background-color: #446; color: white;")
         timer = QTimer(self)
         timer.setSingleShot(True)
 

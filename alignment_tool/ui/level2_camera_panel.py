@@ -13,9 +13,14 @@ class CameraPanelWidget(QWidget):
     """Video frame display panel for Level 2."""
 
     position_changed = pyqtSignal(int)  # emits current frame index
+    user_interacted = pyqtSignal()      # emitted on direct user click; stays silent for programmatic updates
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # Plain QWidgets need WA_StyledBackground + an object-name selector
+        # to reliably render stylesheet borders without cascading to children.
+        self.setObjectName("cameraPanel")
+        self.setAttribute(Qt.WA_StyledBackground, True)
         self._camera_info: CameraFileInfo | None = None
         self._current_frame: int = 0
         self._pending_frame: int = -1
@@ -131,6 +136,11 @@ class CameraPanelWidget(QWidget):
         self._worker.close_video()
         self._worker_thread.quit()
         self._worker_thread.wait(2000)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.user_interacted.emit()
+        super().mousePressEvent(event)
 
     def hideEvent(self, event):
         self.cleanup()

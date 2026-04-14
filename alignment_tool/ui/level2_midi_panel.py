@@ -84,6 +84,7 @@ class MidiCanvasWidget(QWidget):
     """Custom-painted falling keys display."""
 
     position_changed = pyqtSignal(float)  # current time in seconds from file start
+    user_interacted = pyqtSignal()        # direct user input (mouse/wheel); programmatic updates don't emit
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -266,6 +267,7 @@ class MidiCanvasWidget(QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
+            self.user_interacted.emit()
             self._dragging = True
             self._drag_start_y = event.pos().y()
             self._drag_start_time = self._current_time
@@ -288,6 +290,7 @@ class MidiCanvasWidget(QWidget):
         delta = event.angleDelta().y()
         if delta == 0:
             return
+        self.user_interacted.emit()
         factor = 0.8 if delta > 0 else 1.25
         new_spv = self._seconds_per_viewport * factor
         new_spv = max(0.5, min(60.0, new_spv))
@@ -299,11 +302,17 @@ class MidiPanelWidget(QWidget):
     """MIDI panel container with canvas + info label."""
 
     position_changed = pyqtSignal(float)  # seconds from file start
+    user_interacted = pyqtSignal()        # relayed from canvas; see MidiCanvasWidget
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # Plain QWidgets need WA_StyledBackground + an object-name selector
+        # to reliably render stylesheet borders without cascading to children.
+        self.setObjectName("midiPanel")
+        self.setAttribute(Qt.WA_StyledBackground, True)
         self._canvas = MidiCanvasWidget()
         self._canvas.position_changed.connect(self._on_canvas_position_changed)
+        self._canvas.user_interacted.connect(self.user_interacted)
 
         self._info_label = QLabel("No MIDI loaded")
         self._info_label.setAlignment(Qt.AlignCenter)
