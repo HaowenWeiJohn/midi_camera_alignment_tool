@@ -253,6 +253,9 @@ class Level2View(QWidget):
             self._apply_anchor_lock_rule()
             # Sync panels when entering locked mode (even without anchor)
             self._sync_from_camera()
+            # Rebind overlap widget to current mf/cf/eff; _sync_from_camera
+            # only pushes playheads, not bar extents.
+            self._update_overlap()
         else:
             # Leaving locked mode: clear any stuck out-of-range display on
             # either panel, since OOR is only meaningful while locked.
@@ -553,6 +556,12 @@ class Level2View(QWidget):
         self.state_modified.emit()
 
     def _on_anchor_deleted(self, index: int):
+        cf = self._state.camera_files[self._camera_index]
+        if cf.get_active_anchor() is None:
+            # Active anchor was just deleted (service clears active_anchor_index
+            # when its index matches). Mirror _on_anchor_deactivated cleanup.
+            self._midi_combo.setEnabled(True)
+            self._reset_panels_to_normal()
         self._update_overlap()
         self.state_modified.emit()
 
