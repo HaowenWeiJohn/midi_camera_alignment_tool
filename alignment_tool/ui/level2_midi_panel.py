@@ -89,6 +89,7 @@ class MidiCanvasWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(320, 240)
+        self.setMouseTracking(True)
 
         self._note_data = NoteData()
         self._midi_info: MidiFileInfo | None = None
@@ -97,12 +98,15 @@ class MidiCanvasWidget(QWidget):
         # View state
         self._current_time: float = 0.0  # playhead position (seconds from file start)
         self._seconds_per_viewport: float = 5.0  # how many seconds visible in the viewport
-        self._playhead_frac: float = 0.75  # playhead at 75% from top
+        self._playhead_frac: float = 0.97  # playhead at 97% from top
 
         # Drag state
         self._dragging = False
         self._drag_start_y = 0
         self._drag_start_time = 0.0
+
+        # Hover state
+        self._hover_index: int | None = None
 
     def load_midi(self, midi_info: MidiFileInfo, adapter: MidiAdapter):
         """Load MIDI data for display."""
@@ -111,6 +115,7 @@ class MidiCanvasWidget(QWidget):
         self._note_data = NoteData()
         self._note_data.load_from_adapter(adapter)
         self._current_time = 0.0
+        self._hover_index = None
         self.update()
 
     def set_position(self, time_seconds: float):
@@ -153,6 +158,33 @@ class MidiCanvasWidget(QWidget):
         pixels_per_second = canvas_height / self._seconds_per_viewport
         # Time increases downward (notes fall toward playhead)
         return playhead_y - dt * pixels_per_second
+
+    def _note_index_at(self, pos) -> int | None:
+        """Return index of the topmost note under widget position, or None."""
+        if self._midi_info is None or self._note_data is None:
+            return None
+        canvas_height = self.height() - PIANO_HEIGHT
+        plot_width = self.width()
+        if canvas_height <= 0 or plot_width <= 0 or self._seconds_per_viewport <= 0:
+            return None
+        y = pos.y()
+        if y < 0 or y >= canvas_height:
+            return None
+        key_width = plot_width / NUM_KEYS
+        pitch_click = MIN_PITCH + int(pos.x() / key_width)
+        if pitch_click < MIN_PITCH or pitch_click > MAX_PITCH:
+            return None
+        pps = canvas_height / self._seconds_per_viewport
+        playhead_y = canvas_height * self._playhead_frac
+        t_click = self._current_time + (playhead_y - y) / pps
+        t_top = self._current_time + playhead_y / pps
+        t_bottom = self._current_time - (canvas_height - playhead_y) / pps
+        # Reverse: later-painted = visually topmost, matches painter's algorithm.
+        for i in reversed(self._note_data.visible_range(t_bottom, t_top)):
+            if (self._note_data.pitches[i] == pitch_click
+                    and self._note_data.starts[i] <= t_click <= self._note_data.ends[i]):
+                return i
+        return None
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -217,7 +249,10 @@ class MidiCanvasWidget(QWidget):
 
             color = _velocity_color(vel)
             painter.setBrush(QBrush(color))
-            painter.setPen(QPen(color.darker(130), 1))
+            if i == self._hover_index:
+                painter.setPen(QPen(QColor(255, 255, 255), 2))
+            else:
+                painter.setPen(QPen(color.darker(130), 1))
 
             note_rect = QRectF(x + 1, min(y_top, y_bottom), w - 2, abs(y_bottom - y_top))
             note_rect = note_rect.intersected(QRectF(0, 0, self.width(), canvas_height))
@@ -284,6 +319,30 @@ class MidiCanvasWidget(QWidget):
             pps = canvas_height / self._seconds_per_viewport
             dt = dy / pps  # dragging down = moving forward in time
             self.set_position(self._drag_start_time + dt)
+        self._update_hover(self._note_index_at(event.pos()))
+
+    def leaveEvent(self, event):
+        self._update_hover(None)
+        super().leaveEvent(event)
+
+    def _update_hover(self, idx: int | None):
+        if idx != self._hover_index:
+            self._hover_index = idx
+            self.update()
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() != Qt.LeftButton:
+            super().mouseDoubleClickEvent(event)
+            return
+        idx = self._note_index_at(event.pos())
+        if idx is None:
+            super().mouseDoubleClickEvent(event)
+            return
+        # Cancel drag state from the preceding press so a 1-px jitter before
+        # release doesn't snap the playhead back via mouseMoveEvent.
+        self._dragging = False
+        self.set_position(self._note_data.starts[idx])
+        event.accept()
 
     def wheelEvent(self, event):
         """Scroll wheel zooms time axis."""
