@@ -1,7 +1,7 @@
 """Level 2: Alignment Detail View — side-by-side MIDI + camera panels."""
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QSignalBlocker
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QSignalBlocker, QThread, QMetaObject, Q_ARG
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel,
@@ -14,6 +14,7 @@ from alignment_tool.core.errors import (
     MarkersNotSetError, AnchorsExistError, UnknownMidiFileError,
 )
 from alignment_tool.io.midi_adapter import MidiAdapter
+from alignment_tool.io.intensity_worker import IntensityWorker
 from alignment_tool.services.alignment_service import AlignmentService
 from alignment_tool.services.level2_controller import (
     Level2Controller, Mode, SyncOutput,
@@ -22,7 +23,10 @@ from alignment_tool.ui.level2_midi_panel import MidiPanelWidget
 from alignment_tool.ui.level2_camera_panel import CameraPanelWidget
 from alignment_tool.ui.level2_anchor_table import AnchorTableWidget
 from alignment_tool.ui.level2_overlap_indicator import OverlapIndicatorWidget
+from alignment_tool.ui.level2_intensity_plot import IntensityPlotWidget
 from alignment_tool.core import engine
+
+INTENSITY_HALF_WINDOW = 120
 
 
 class Level2View(QWidget):
@@ -53,7 +57,7 @@ class Level2View(QWidget):
         # Top bar: back button + dropdowns + mode toggle
         top_bar = QHBoxLayout()
         self._back_btn = QPushButton("< Back")
-        self._back_btn.clicked.connect(self.back_requested.emit)
+        self._back_btn.clicked.connect(self._on_back_requested)
         top_bar.addWidget(self._back_btn)
 
         top_bar.addWidget(QLabel("MIDI:"))
@@ -125,6 +129,35 @@ class Level2View(QWidget):
         splitter.setSizes([500, 500])
         layout.addWidget(splitter, stretch=1)
 
+        # Intensity probe: plot of pixel luma vs. frame index for a dropped
+        # probe dot. Always visible; displays a placeholder when no dot is
+        # active and an error if sampling fails. Lives in its own row between
+        # the splitter and the anchor table so the splitter stays symmetric.
+        self._intensity_plot = IntensityPlotWidget()
+        self._intensity_plot.frame_seek_requested.connect(
+            self._on_intensity_plot_frame_seek_requested
+        )
+        layout.addWidget(self._intensity_plot)
+        # Identifies the most-recent dot we're waiting on. Tuple of
+        # (center_frame, src_x, src_y) or None. Stale worker results are
+        # filtered by exact tuple match so a late sample from an earlier dot
+        # (or a previous clip) can't overwrite the current trace.
+        self._last_sample_request: tuple[int, int, int] | None = None
+
+        # Intensity worker runs on its own QThread with its own cv2 capture,
+        # so display scrubbing stays responsive while a window is sampled.
+        self._intensity_thread = QThread(self)
+        self._intensity_worker = IntensityWorker()
+        self._intensity_worker.moveToThread(self._intensity_thread)
+        self._intensity_worker.intensity_ready.connect(self._on_intensity_ready)
+        self._intensity_worker.sample_failed.connect(self._on_intensity_failed)
+        self._intensity_thread.start()
+
+        # Camera panel → intensity pipeline wiring.
+        self._camera_panel.dot_dropped.connect(self._on_camera_dot_dropped)
+        self._camera_panel.dot_cleared.connect(self._on_camera_dot_cleared)
+        # Playhead in the plot tracks the camera scrubbing in real time.
+
         # Add Anchor lives with the anchor table it mutates (inserted below).
         self._add_anchor_btn = QPushButton("Add Anchor (A)")
         self._add_anchor_btn.setEnabled(False)
@@ -143,6 +176,7 @@ class Level2View(QWidget):
         # Connect panel position signals
         self._midi_panel.position_changed.connect(self._on_midi_position_changed)
         self._camera_panel.position_changed.connect(self._on_camera_position_changed)
+        self._camera_panel.position_changed.connect(self._intensity_plot.set_playhead_frame)
 
         # Auto-activate the panel the user is directly interacting with. Only
         # fires from mouse/wheel events, never from programmatic navigation.
@@ -221,6 +255,15 @@ class Level2View(QWidget):
             self._update_marker_ui()
         self._camera_panel.load_video(cf)
         self._camera_panel.show_normal()
+        # Open the intensity worker on the new clip via a queued invocation so
+        # the cv2 capture is created on the worker thread (not the UI thread).
+        # _on_camera_dot_cleared (triggered by load_video) also hides the plot.
+        QMetaObject.invokeMethod(
+            self._intensity_worker,
+            "open_video",
+            Qt.QueuedConnection,
+            Q_ARG(str, cf.mp4_path),
+        )
         self._refresh_anchor_table()
         self._anchor_table.set_context(self._state, self._service, self._camera_index)
 
@@ -387,6 +430,10 @@ class Level2View(QWidget):
             # apart due to round()-vs-continuous quantization (~sub-pixel but
             # visible after int(px) rounding).
             self._snap_both_overlap_playheads_to_frame(out.new_camera_frame)
+            # position_changed is blocked above, so the intensity plot's
+            # playhead (normally wired to camera.position_changed) would
+            # miss this update. Push it explicitly.
+            self._intensity_plot.set_playhead_frame(out.new_camera_frame)
         if out.new_midi_time is not None:
             self._midi_panel.show_normal()
             with QSignalBlocker(self._midi_panel):
@@ -651,7 +698,7 @@ class Level2View(QWidget):
         shortcut(Qt.SHIFT + Qt.Key_Right, lambda: self._step_active(1, True))
         shortcut(Qt.Key_O, self._jump_to_overlap)
         shortcut(Qt.Key_Tab, self._switch_active_panel)
-        shortcut(Qt.Key_Escape, self.back_requested.emit)
+        shortcut(Qt.Key_Escape, self._on_back_requested)
 
     def _shortcut_add_anchor(self):
         if self._controller is None:
@@ -731,5 +778,74 @@ class Level2View(QWidget):
         timer.start(400)
         self._flash_timers[label] = timer
 
+    # --- Intensity probe ---
+
+    def _on_back_requested(self) -> None:
+        """Exit the pair. Drop the probe dot so returning to any pair starts fresh."""
+        # clear_dot emits dot_cleared → _on_camera_dot_cleared clears the plot
+        # and nulls _last_sample_request, so any in-flight sample's late result
+        # gets discarded when it arrives.
+        self._camera_panel.clear_dot()
+        self.back_requested.emit()
+
+    def _on_camera_dot_dropped(self, src_x: int, src_y: int, center_frame: int) -> None:
+        """The camera panel just received a right-click. Kick off a sample walk."""
+        self._last_sample_request = (center_frame, src_x, src_y)
+        self._intensity_plot.show_status(f"Sampling ±{INTENSITY_HALF_WINDOW} frames…")
+        self._intensity_plot.set_playhead_frame(self._camera_panel.current_frame)
+        QMetaObject.invokeMethod(
+            self._intensity_worker,
+            "request_window",
+            Qt.QueuedConnection,
+            Q_ARG(int, center_frame),
+            Q_ARG(int, src_x),
+            Q_ARG(int, src_y),
+            Q_ARG(int, INTENSITY_HALF_WINDOW),
+        )
+
+    def _on_camera_dot_cleared(self) -> None:
+        """Camera clip was swapped (or dot explicitly cleared). Reset the plot."""
+        self._last_sample_request = None
+        self._intensity_plot.clear()
+
+    def _on_intensity_ready(
+        self,
+        center_frame: int,
+        src_x: int,
+        src_y: int,
+        first_frame: int,
+        last_frame: int,
+        values: object,
+    ) -> None:
+        # Exact-tuple match: discard any result whose (center_frame, src_x,
+        # src_y) is not the latest dropped dot. Covers two races:
+        #   1) Clip switch mid-sample — _on_camera_dot_cleared nulled the
+        #      tuple, so the late result doesn't match anything.
+        #   2) New dot on the same clip mid-sample — the tuple has been
+        #      updated to the new dot, and the stale older sample won't match.
+        # Worker slots are serialized, so in-flight request_window cannot be
+        # cancelled mid-loop; the guard has to live here on the UI side.
+        if self._last_sample_request != (center_frame, src_x, src_y):
+            return
+        # values arrives as a Python list by way of the `object` signal type.
+        self._intensity_plot.set_data(first_frame, last_frame, list(values), center_frame)
+        self._intensity_plot.set_playhead_frame(self._camera_panel.current_frame)
+
+    def _on_intensity_failed(self, message: str) -> None:
+        if self._last_sample_request is None:
+            return
+        self._intensity_plot.show_status(f"Sampling failed: {message}")
+
+    def _on_intensity_plot_frame_seek_requested(self, frame: int) -> None:
+        """User left-clicked the plot — seek the camera playhead there."""
+        self._camera_panel.show_normal()
+        self._camera_panel.set_frame(int(frame))
+
     def cleanup(self):
         self._camera_panel.cleanup()
+        # Close the intensity capture on the worker thread, then stop the thread.
+        QMetaObject.invokeMethod(
+            self._intensity_worker, "close_video", Qt.QueuedConnection
+        )
+        self._intensity_thread.quit()
+        self._intensity_thread.wait(2000)
