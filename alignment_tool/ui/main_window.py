@@ -1,6 +1,8 @@
 import logging
+import os
 
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QCloseEvent
 from PyQt5.QtWidgets import (
     QMainWindow, QStackedWidget, QAction, QFileDialog,
     QMessageBox, QLabel, QApplication,
@@ -32,6 +34,7 @@ class MainWindow(QMainWindow):
         self._state: AlignmentState | None = None
         self._service: AlignmentService | None = None
         self._controller: Level2Controller | None = None
+        self._dirty: bool = False
 
         # Central stacked widget (Level 1 / Level 2)
         self._stack = QStackedWidget()
@@ -96,11 +99,13 @@ class MainWindow(QMainWindow):
         return self._state
 
     def _set_state(self, state: AlignmentState, warnings: list[str] | None = None):
+        self._level2.reset()
         self._state = state
         self._service = AlignmentService(state)
         self._controller = Level2Controller(state, self._service)
         self._save_action.setEnabled(True)
-        self.setWindowTitle(f"MIDI-Camera Alignment Tool \u2014 Participant {state.participant_id}")
+        self._dirty = False
+        self._update_title()
         self._update_status()
         self._level1.set_state(state, self._service)
         self._level2.attach(state, self._service, self._controller)
@@ -128,7 +133,18 @@ class MainWindow(QMainWindow):
 
     def _on_state_modified(self):
         """Handle state changes from Level 2 (anchors, global shift)."""
+        self._dirty = True
+        self._update_title()
         self._update_status()
+
+    def _update_title(self):
+        if self._state is None:
+            self.setWindowTitle("MIDI-Camera Alignment Tool")
+            return
+        dirty = " *" if self._dirty else ""
+        self.setWindowTitle(
+            f"MIDI-Camera Alignment Tool \u2014 Participant {self._state.participant_id}{dirty}"
+        )
 
     def _update_status(self):
         if self._state is None:
@@ -141,7 +157,26 @@ class MainWindow(QMainWindow):
             f"Anchors: {self._state.total_anchor_count()}"
         )
 
+    def _prompt_unsaved_changes(self) -> bool:
+        """Return True if it's safe to discard current state."""
+        if not self._dirty:
+            return True
+        reply = QMessageBox.question(
+            self, "Unsaved Changes",
+            "You have unsaved changes. What would you like to do?",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save,
+        )
+        if reply == QMessageBox.Cancel:
+            return False
+        if reply == QMessageBox.Save:
+            self._on_save()
+            return not self._dirty
+        return True
+
     def _on_open_participant(self):
+        if not self._prompt_unsaved_changes():
+            return
         folder = QFileDialog.getExistingDirectory(self, "Select Participant Folder")
         if not folder:
             return
@@ -178,6 +213,8 @@ class MainWindow(QMainWindow):
             return
         try:
             persistence.save_alignment(self._state, filepath)
+            self._dirty = False
+            self._update_title()
             self._status_label.setText(f"Saved: {filepath}")
         except AlignmentToolError as e:
             self._show_exception(e)
@@ -186,6 +223,8 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error Saving", str(e))
 
     def _on_load(self):
+        if not self._prompt_unsaved_changes():
+            return
         filepath, _ = QFileDialog.getOpenFileName(
             self, "Load Alignment", "", "JSON Files (*.json)"
         )
@@ -193,12 +232,30 @@ class MainWindow(QMainWindow):
             return
         try:
             state = persistence.load_alignment(filepath)
-            self._set_state(state)
         except AlignmentToolError as e:
             self._show_exception(e)
+            return
         except Exception as e:
             logger.exception("Unexpected error loading alignment")
             QMessageBox.critical(self, "Error Loading", str(e))
+            return
+
+        rebased = False
+        if not os.path.isdir(state.participant_folder):
+            new_folder = QFileDialog.getExistingDirectory(
+                self,
+                f"Participant folder not found:\n{state.participant_folder}\n\n"
+                "Select the new location:",
+            )
+            if not new_folder:
+                return
+            persistence.rebase_paths(state, new_folder)
+            rebased = True
+
+        self._set_state(state)
+        if rebased:
+            self._dirty = True
+            self._update_title()
 
     def _show_exception(self, exc: AlignmentToolError) -> None:
         if isinstance(exc, (MediaLoadError, PersistenceError)):
@@ -216,3 +273,10 @@ class MainWindow(QMainWindow):
             self, "Some files could not be loaded",
             f"{len(warnings)} file(s) were skipped:\n\n{msg}",
         )
+
+    def closeEvent(self, event: QCloseEvent):
+        if not self._prompt_unsaved_changes():
+            event.ignore()
+            return
+        self._level2.cleanup()
+        super().closeEvent(event)

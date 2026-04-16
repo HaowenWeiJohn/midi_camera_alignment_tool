@@ -188,6 +188,45 @@ class Level2View(QWidget):
         # Keyboard shortcuts (work regardless of which child widget has focus)
         self._setup_shortcuts()
 
+    def reset(self) -> None:
+        """Release stale resources from the previous state.
+
+        Called by MainWindow._set_state *before* attach() so the old service
+        is still valid for clear_active_anchor().
+        """
+        if self._service is not None:
+            self._service.clear_active_anchor()
+        self._camera_panel.clear_dot()
+        self._camera_panel.close_video()
+        QMetaObject.invokeMethod(
+            self._intensity_worker, "close_video", Qt.QueuedConnection,
+        )
+        self._midi_adapter = None
+
+        self._mode_btn.setChecked(False)
+        self._mode_btn.setText("Mode: Independent")
+        self._midi_marker_label.setText("MIDI mark: (none)")
+        self._camera_marker_label.setText("Camera mark: (none)")
+        self._compute_shift_btn.setEnabled(False)
+        self._add_anchor_btn.setEnabled(False)
+
+        self._midi_combo.blockSignals(True)
+        self._midi_combo.clear()
+        self._midi_combo.blockSignals(False)
+        self._camera_combo.blockSignals(True)
+        self._camera_combo.clear()
+        self._camera_combo.blockSignals(False)
+
+        self._midi_index = 0
+        self._camera_index = 0
+
+        for timer in self._flash_timers.values():
+            timer.stop()
+        self._flash_timers.clear()
+
+        self._overlap.clear()
+        self._update_status_line()
+
     def attach(
         self, state: AlignmentState,
         service: AlignmentService,

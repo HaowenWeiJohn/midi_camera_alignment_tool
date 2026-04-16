@@ -63,6 +63,14 @@ class OverlapIndicatorWidget(QWidget):
         self._effective_shift = shift
         self.update()
 
+    def clear(self) -> None:
+        self._midi_info = None
+        self._camera_info = None
+        self._effective_shift = 0.0
+        self._midi_playhead = None
+        self._camera_playhead = None
+        self.update()
+
     # --- Coordinate helpers ---
 
     def _compute_layout(self) -> tuple | None:

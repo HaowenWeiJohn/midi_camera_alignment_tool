@@ -176,6 +176,18 @@ class CameraPanelWidget(QWidget):
         self._request_frame(self._current_frame)
         event.accept()
 
+    def close_video(self) -> None:
+        """Release the video capture without opening a new one."""
+        self._worker.close_video()
+        self._camera_info = None
+        self._current_frame = 0
+        self._source_w = 0
+        self._source_h = 0
+        self._dot_source_xy = None
+        self._dot_center_frame = None
+        self._frame_label.clear()
+        self._counter_label.setText("No video loaded")
+
     def clear_dot(self) -> None:
         """Public hook so external callers can drop the current probe dot."""
         self._clear_dot(emit=True)
