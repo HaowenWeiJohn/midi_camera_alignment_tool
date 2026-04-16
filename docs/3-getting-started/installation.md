@@ -13,20 +13,40 @@ The tool is a standalone Python/PyQt5 application. It runs on Windows, macOS, an
 
 ## Install dependencies
 
-```bash
-python -m pip install PyQt5 mido pretty_midi opencv-python numpy
-```
+Pick the recipe that matches how you manage Python environments — both are authoritative. The tool has no `requirements.txt`.
 
-The tool has no `requirements.txt`; the command above is the authoritative dependency list.
+=== "pip"
 
-!!! tip "Use a virtual environment"
-    Keep these dependencies isolated from your system Python:
     ```bash
-    python -m venv .venv
-    source .venv/bin/activate        # Linux / macOS
-    .venv\Scripts\activate           # Windows PowerShell / cmd
     python -m pip install PyQt5 mido pretty_midi opencv-python numpy
     ```
+
+    !!! tip "Use a virtual environment"
+        Keep these dependencies isolated from your system Python:
+        ```bash
+        python -m venv .venv
+        source .venv/bin/activate        # Linux / macOS
+        .venv\Scripts\activate           # Windows PowerShell / cmd
+        python -m pip install PyQt5 mido pretty_midi opencv-python numpy
+        ```
+
+=== "conda"
+
+    All five dependencies are on `conda-forge`. The `pyqt=5` pin avoids picking up PyQt6, which the app does not support.
+
+    ```bash
+    conda create -n alignment -c conda-forge python=3.11 "pyqt=5" mido pretty_midi opencv numpy
+    conda activate alignment
+    ```
+
+    If you already have a conda environment and just want to add the packages:
+
+    ```bash
+    conda install -c conda-forge "pyqt=5" mido pretty_midi opencv numpy
+    ```
+
+    !!! note "Package names on conda-forge"
+        `pyqt` (with `=5` pin) provides **PyQt5**, and `opencv` provides the `cv2` Python binding — equivalent to `opencv-python` on PyPI. `mido`, `pretty_midi`, and `numpy` use the same names as pip.
 
 ## Get the code
 
