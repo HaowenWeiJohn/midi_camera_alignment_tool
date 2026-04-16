@@ -1784,9 +1784,17 @@
 <h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Scans a participant folder for <code>.mid</code> files in <code>disklavier/</code> and <code>.MP4 + .XML</code> pairs in <code>overhead camera/</code>.</li>
-<li>Displays every MIDI clip and every camera clip as a Gantt-style timeline (Level 1).</li>
-<li>For any MIDI + camera pair, opens a detail view with a falling-keys piano roll, a frame-accurate video viewer, a dual-track overlap bar, a pixel-intensity probe, and an anchor table (Level 2).</li>
-<li>Lets you mark one MIDI keystroke and the matching video frame, then either <strong>computes a global shift</strong> or <strong>records a per-clip anchor</strong> to refine alignment.</li>
+<li>
+<p>Displays every MIDI clip and every camera clip as a Gantt-style timeline (Level 1).</p>
+<p><img alt="Level 1 timeline overview showing MIDI and camera bars on a shared time axis" src="assets/images/level-1-screen-shot.png" /></p>
+</li>
+<li>
+<p>For any MIDI + camera pair, opens a detail view with a falling-keys piano roll, a frame-accurate video viewer, a dual-track overlap bar, a pixel-intensity probe, and an anchor table (Level 2).</p>
+<p><img alt="Level 2 detail view showing the MIDI piano roll, camera panel, overlap indicator, intensity plot, and anchor table" src="assets/images/level-2-screen-shot.png" /></p>
+</li>
+<li>
+<p>Lets you mark one MIDI keystroke and the matching video frame, then either <strong>computes a global shift</strong> or <strong>records a per-clip anchor</strong> to refine alignment.</p>
+</li>
 <li>Saves and loads the session as a versioned JSON file (Schema v1).</li>
 </ol>
 <div class="admonition note">
