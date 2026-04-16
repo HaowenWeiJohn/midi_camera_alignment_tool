@@ -2,6 +2,8 @@
 
 Level 2 is the per-pair alignment workspace. It shows a single MIDI file and a single camera clip side-by-side, plus supporting widgets for navigation, probing, and anchor management.
 
+![Level 2 detail view showing the MIDI piano roll, camera panel, overlap indicator, intensity plot, and anchor table](../assets/images/level-2-screen-shot.png)
+
 ## Layout
 
 ```

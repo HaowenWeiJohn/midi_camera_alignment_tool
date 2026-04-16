@@ -12,7 +12,13 @@ Researchers working with paired Disklavier MIDI + overhead video recordings who 
 
 1. Scans a participant folder for `.mid` files in `disklavier/` and `.MP4 + .XML` pairs in `overhead camera/`.
 2. Displays every MIDI clip and every camera clip as a Gantt-style timeline (Level 1).
+
+    ![Level 1 timeline overview showing MIDI and camera bars on a shared time axis](assets/images/level-1-screen-shot.png)
+
 3. For any MIDI + camera pair, opens a detail view with a falling-keys piano roll, a frame-accurate video viewer, a dual-track overlap bar, a pixel-intensity probe, and an anchor table (Level 2).
+
+    ![Level 2 detail view showing the MIDI piano roll, camera panel, overlap indicator, intensity plot, and anchor table](assets/images/level-2-screen-shot.png)
+
 4. Lets you mark one MIDI keystroke and the matching video frame, then either **computes a global shift** or **records a per-clip anchor** to refine alignment.
 5. Saves and loads the session as a versioned JSON file (Schema v1).
 

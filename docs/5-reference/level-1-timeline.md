@@ -2,6 +2,8 @@
 
 Level 1 is a Gantt-style bar chart of every clip in the session on a shared time axis. It exists to give a one-glance sense of which MIDI files and camera clips were recorded when, and to provide the coarse-alignment control (the participant's global shift).
 
+![Level 1 timeline overview showing MIDI and camera bars on a shared time axis](../assets/images/level-1-screen-shot.png)
+
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ Global Shift (s): [ 0.000 ▲▼ ]  [ Apply ]  [ Open Selected Pair ]│
