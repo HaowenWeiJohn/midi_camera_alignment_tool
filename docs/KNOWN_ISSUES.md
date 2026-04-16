@@ -1,45 +1,49 @@
 # Known Issues — Level 2 Locked Mode
 
-Three open issues affect Level 2 anchor/shift transitions. None corrupt saved alignment data or show incorrect values in any widget; all relate to the LOCKED-mode invariant or activation UX.
+Three issues were originally filed against Level 2 anchor/shift transitions. None corrupt saved alignment data or show incorrect values in any widget; all relate to the LOCKED-mode invariant or activation UX. The 2026-04-15 anchor-activation refactor resolved two of them and left one open. Status notes are attached to each entry below.
+
+**Context for readers:** in the 2026-04-15 refactor, the "active anchor" became session-only state. Activation is now gated — only anchors whose `midi_filename` matches the currently displayed MIDI are activatable; others render grayed out. On any MIDI-combo change, camera-combo change, Back/Esc exit, or re-entry via `load_pair`, the active anchor is cleared. `active_anchor_index` is no longer persisted in JSON. `_apply_anchor_lock_rule` was deleted; the MIDI combo is never programmatically disabled anymore.
 
 ## Issue #2 — Deactivating an active anchor breaks the lock
 
-**Where:** `alignment_tool/ui/level2_view.py` — `_on_anchor_deactivated` (~line 549)
+**Status:** **Fixed (2026-04-15).**
 
-**Symptom:** In LOCKED mode, clicking the `*` cell to deactivate the active anchor drops `effective_shift` from `global + anchor_shift` to just `global`. Panels don't re-sync, so the two white playheads on the overlap bar visibly diverge. Mode button still reads "Locked" but panels no longer correspond.
+**Where:** `alignment_tool/ui/level2_view.py` — `_on_anchor_deactivated`
 
-**Impact:** Alignment verification in LOCKED mode becomes unreliable until the user manually scrubs to re-engage the lock.
+**Symptom:** In LOCKED mode, clicking the `*` cell to deactivate the active anchor dropped `effective_shift` from `global + anchor_shift` to just `global`. Panels didn't re-sync, so the two white playheads on the overlap bar visibly diverged. Mode button still read "Locked" but panels no longer corresponded.
 
-**Suggested fix:** Append `if self._controller.mode == Mode.LOCKED: self._sync_from_camera()` after `_reset_panels_to_normal()`.
+**Fix applied:** `_on_anchor_deactivated` now calls `_sync_from_camera()` when `mode == Mode.LOCKED`, before `_update_overlap()`. The same fix was also applied to `_on_anchor_deleted` for the "deleted the active anchor" branch — the old version had the identical omission even though its comment claimed it mirrored `_on_anchor_deactivated`.
 
 ---
 
 ## Issue #3 — Anchor activation in LOCKED mode behaves inconsistently
 
-**Where:** `alignment_tool/ui/level2_view.py` — `_apply_anchor_lock_rule` (~lines 289–298)
+**Status:** **Obsoleted (2026-04-15).** The root condition (activating an anchor whose `midi_filename` ≠ the currently displayed MIDI) can no longer occur through the UI.
 
-**Symptom:** Clicking the `*` cell to activate an anchor lands the panels in different places depending on whether the anchor's `midi_filename` matches the currently loaded MIDI file:
+**Where:** `alignment_tool/ui/level2_view.py` — formerly `_apply_anchor_lock_rule`
 
-- **Different MIDI file:** panels jump to the anchor point `(F_a, T_a)`.
-- **Same MIDI file:** camera stays at current frame `F`; MIDI snaps to `F`'s aligned time under the new shift (not `T_a`).
+**Original symptom:** Clicking the `*` cell to activate an anchor landed the panels in different places depending on whether the anchor's `midi_filename` matched the currently loaded MIDI file:
 
-Both end states are internally consistent (lock holds), but the user's observation of "what activation does" changes between anchors based on a detail they aren't thinking about.
+- **Different MIDI file:** panels jumped to the anchor point `(F_a, T_a)`.
+- **Same MIDI file:** camera stayed at current frame `F`; MIDI snapped to `F`'s aligned time under the new shift (not `T_a`).
 
-**Impact:** UX confusion; no numeric value is wrong.
+Both end states were internally consistent (lock held) but the user's observation of "what activation does" shifted between anchors based on a detail they weren't thinking about.
 
-**Suggested fix:** Pick one behavior and apply it unconditionally. Recommendation: **always jump to the anchor point** on activate. Remove `set_position(anchor.midi_timestamp_seconds)` (line 295) and `_sync_from_camera()` (line 298) from inside `_apply_anchor_lock_rule`; let `_on_anchor_activated` perform an explicit `camera_panel.set_frame(anchor.camera_frame)` + `midi_panel.set_position(anchor.midi_timestamp_seconds)` instead. `_toggle_mode` keeps its own `_sync_from_camera()` call.
+**Resolution:** Under the new activation rule, only anchors whose MIDI matches the displayed MIDI can be activated — the "different MIDI" branch is unreachable via normal UI. The "same MIDI" behavior (camera stays, MIDI syncs to aligned time) is now the only behavior. `_apply_anchor_lock_rule` was deleted entirely; `_on_anchor_activated` calls `_sync_from_camera()` when LOCKED, nothing else.
 
 ---
 
 ## Issue #4 — Compute Global Shift in LOCKED mode breaks the lock
 
-**Where:** `alignment_tool/ui/level2_view.py` — `_on_compute_shift` (~line 479)
+**Status:** **Open.** Not addressed by the 2026-04-15 refactor.
 
-**Symptom:** In LOCKED mode, pressing "Compute Global Shift" applies a new `global_shift` (and clears anchors if confirmed) but doesn't re-sync panels. Panel positions are unchanged while `effective_shift` just changed, so the overlap playheads diverge — identical symptom to Issue #2.
+**Where:** `alignment_tool/ui/level2_view.py` — `_on_compute_shift` (~line 499)
 
-**Impact:** Same as Issue #2, but usually self-heals because the user typically scrubs right after applying a new shift.
+**Symptom:** In LOCKED mode, pressing "Compute Global Shift" applies a new `global_shift` (and clears anchors if confirmed) but doesn't re-sync panels. Panel positions are unchanged while `effective_shift` just changed, so the overlap playheads diverge — identical symptom to the pre-refactor Issue #2.
 
-**Suggested fix:** Append `if self._controller.mode == Mode.LOCKED: self._sync_from_camera()` before `_update_overlap()` at the end of `_on_compute_shift`.
+**Impact:** Same as Issue #2 was, but usually self-heals because the user typically scrubs right after applying a new shift.
+
+**Suggested fix:** Append `if self._controller.mode == Mode.LOCKED: self._sync_from_camera()` before `_update_overlap()` at the end of `_on_compute_shift`. Mechanically identical to the fix applied to Issue #2.
 
 ---
 

@@ -97,7 +97,6 @@ def _camera_to_dict(c: CameraFileInfo) -> dict:
         "capture_fps": c.capture_fps,
         "total_frames": c.total_frames,
         "alignment_anchors": [_anchor_to_dict(a) for a in c.alignment_anchors],
-        "active_anchor_index": c.active_anchor_index,
     }
 
 
@@ -146,7 +145,6 @@ def _dict_to_camera(d: dict) -> CameraFileInfo:
         capture_fps=d["capture_fps"],
         total_frames=d["total_frames"],
         alignment_anchors=[_dict_to_anchor(a) for a in d["alignment_anchors"]],
-        active_anchor_index=d["active_anchor_index"],
     )
 
 

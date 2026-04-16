@@ -81,6 +81,11 @@ class AlignmentService:
             )
         cf.active_anchor_index = anchor_index
 
+    def clear_active_anchor(self) -> None:
+        """Clear active anchor on every camera clip. Session-only state."""
+        for cf in self._state.camera_files:
+            cf.active_anchor_index = None
+
     # --- pure reads ---
 
     def effective_shift_for(self, camera_index: int) -> float:

@@ -49,7 +49,8 @@ def test_round_trip_preserves_all_fields(tmp_path: Path):
     assert loaded.camera_files[0].mp4_path == cam.mp4_path
     assert loaded.camera_files[0].xml_path == cam.xml_path
     assert loaded.camera_files[0].total_frames == cam.total_frames
-    assert loaded.camera_files[0].active_anchor_index == 0
+    # active_anchor_index is session-only; always loads as None.
+    assert loaded.camera_files[0].active_anchor_index is None
     assert loaded.camera_files[0].alignment_anchors[0].label == "keypress A"
 
 
@@ -120,4 +121,40 @@ def test_camera_file_with_zero_anchors(tmp_path: Path):
     persistence.save_alignment(state, str(filepath))
     loaded = persistence.load_alignment(str(filepath))
     assert loaded.camera_files[0].alignment_anchors == []
+    assert loaded.camera_files[0].active_anchor_index is None
+
+
+def test_active_anchor_index_is_not_persisted(tmp_path: Path):
+    """active_anchor_index is session-only. Saving should omit the key entirely."""
+    midi = make_midi_file(filename="t1.mid")
+    anchor = make_anchor(midi_filename="t1.mid")
+    cam = make_camera_file(anchors=[anchor], active_anchor_index=0)
+    state = make_state(midi_files=[midi], camera_files=[cam])
+
+    filepath = tmp_path / "align.json"
+    persistence.save_alignment(state, str(filepath))
+    with open(filepath) as f:
+        data = json.load(f)
+
+    assert "active_anchor_index" not in data["camera_files"][0]
+
+
+def test_load_ignores_legacy_active_anchor_index_key(tmp_path: Path):
+    """Old JSONs with active_anchor_index set must load with active=None."""
+    midi = make_midi_file(filename="t1.mid")
+    anchor = make_anchor(midi_filename="t1.mid")
+    cam = make_camera_file(anchors=[anchor], active_anchor_index=None)
+    state = make_state(midi_files=[midi], camera_files=[cam])
+
+    filepath = tmp_path / "align.json"
+    persistence.save_alignment(state, str(filepath))
+
+    # Hand-inject the legacy key the way a pre-refactor save would have.
+    with open(filepath) as f:
+        data = json.load(f)
+    data["camera_files"][0]["active_anchor_index"] = 0
+    with open(filepath, "w") as f:
+        json.dump(data, f)
+
+    loaded = persistence.load_alignment(str(filepath))
     assert loaded.camera_files[0].active_anchor_index is None

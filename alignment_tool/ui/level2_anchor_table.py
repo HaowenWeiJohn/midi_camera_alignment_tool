@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QBrush
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLabel,
@@ -19,6 +20,8 @@ class AnchorTableWidget(QWidget):
     anchor_activated = pyqtSignal(int)  # anchor index
     anchor_deactivated = pyqtSignal()
     anchor_deleted = pyqtSignal(int)  # anchor index
+    midi_time_jump_requested = pyqtSignal(float)  # seconds into MIDI
+    camera_frame_jump_requested = pyqtSignal(int)  # camera frame
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -28,6 +31,7 @@ class AnchorTableWidget(QWidget):
         self._state: AlignmentState | None = None
         self._service: AlignmentService | None = None
         self._camera_index: int = 0
+        self._current_midi_filename: str | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
@@ -54,6 +58,7 @@ class AnchorTableWidget(QWidget):
         self._table.setSelectionMode(QAbstractItemView.SingleSelection)
         self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._table.cellClicked.connect(self._on_cell_clicked)
+        self._table.cellDoubleClicked.connect(self._on_cell_double_clicked)
         self._table.itemSelectionChanged.connect(
             lambda: self._delete_btn.setEnabled(bool(self._table.selectedItems()))
         )
@@ -67,10 +72,17 @@ class AnchorTableWidget(QWidget):
         insert_index = self._header_layout.count() - 2  # before the stretch
         self._header_layout.insertWidget(insert_index, widget)
 
-    def set_data(self, camera_info: CameraFileInfo, midi_lookup: dict[str, MidiFileInfo], global_shift: float):
+    def set_data(
+        self,
+        camera_info: CameraFileInfo,
+        midi_lookup: dict[str, MidiFileInfo],
+        global_shift: float,
+        current_midi_filename: str | None = None,
+    ):
         self._camera_info = camera_info
         self._midi_lookup = midi_lookup
         self._global_shift = global_shift
+        self._current_midi_filename = current_midi_filename
         self._refresh()
 
     def set_context(
@@ -95,6 +107,10 @@ class AnchorTableWidget(QWidget):
 
         for i, anchor in enumerate(self._camera_info.alignment_anchors):
             self._table.insertRow(i)
+            matches = (
+                self._current_midi_filename is None
+                or anchor.midi_filename == self._current_midi_filename
+            )
 
             # #
             self._table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
@@ -119,8 +135,8 @@ class AnchorTableWidget(QWidget):
             # Label
             self._table.setItem(i, 5, QTableWidgetItem(anchor.label))
 
-            # Active
-            is_active = (i == self._camera_info.active_anchor_index)
+            # Active — only render * when this row's MIDI matches the displayed one.
+            is_active = matches and (i == self._camera_info.active_anchor_index)
             active_item = QTableWidgetItem("*" if is_active else "")
             active_item.setTextAlignment(Qt.AlignCenter)
             if is_active:
@@ -128,10 +144,29 @@ class AnchorTableWidget(QWidget):
                 active_item.setForeground(Qt.white)
             self._table.setItem(i, 6, active_item)
 
+            if not matches:
+                gray = QBrush(Qt.gray)
+                for col in range(7):
+                    item = self._table.item(i, col)
+                    if item is None:
+                        continue
+                    item.setFlags(
+                        item.flags() & ~Qt.ItemIsEnabled & ~Qt.ItemIsSelectable
+                    )
+                    item.setForeground(gray)
+
     def _on_cell_clicked(self, row: int, col: int):
         if self._camera_info is None or self._service is None:
             return
         if col == 6:  # Active column — toggle
+            if not (0 <= row < len(self._camera_info.alignment_anchors)):
+                return
+            anchor = self._camera_info.alignment_anchors[row]
+            if (
+                self._current_midi_filename is not None
+                and anchor.midi_filename != self._current_midi_filename
+            ):
+                return
             if self._camera_info.active_anchor_index == row:
                 self._service.set_active_anchor(self._camera_index, None)
                 self.anchor_deactivated.emit()
@@ -139,6 +174,22 @@ class AnchorTableWidget(QWidget):
                 self._service.set_active_anchor(self._camera_index, row)
                 self.anchor_activated.emit(row)
             self._refresh()
+
+    def _on_cell_double_clicked(self, row: int, col: int):
+        if self._camera_info is None:
+            return
+        if not (0 <= row < len(self._camera_info.alignment_anchors)):
+            return
+        anchor = self._camera_info.alignment_anchors[row]
+        if (
+            self._current_midi_filename is not None
+            and anchor.midi_filename != self._current_midi_filename
+        ):
+            return
+        if col == 2:  # MIDI Time (s)
+            self.midi_time_jump_requested.emit(anchor.midi_timestamp_seconds)
+        elif col == 3:  # Camera Frame
+            self.camera_frame_jump_requested.emit(anchor.camera_frame)
 
     def _on_delete(self):
         if self._camera_info is None or self._service is None:

@@ -170,6 +170,8 @@ class Level2View(QWidget):
         self._anchor_table.anchor_activated.connect(self._on_anchor_activated)
         self._anchor_table.anchor_deactivated.connect(self._on_anchor_deactivated)
         self._anchor_table.anchor_deleted.connect(self._on_anchor_deleted)
+        self._anchor_table.midi_time_jump_requested.connect(self._on_anchor_midi_jump)
+        self._anchor_table.camera_frame_jump_requested.connect(self._on_anchor_camera_jump)
         self._anchor_table.setMaximumHeight(200)
         layout.addWidget(self._anchor_table)
 
@@ -199,6 +201,8 @@ class Level2View(QWidget):
         """Load a MIDI + camera pair for alignment."""
         if self._controller is None or self._state is None:
             return
+        if self._service is not None:
+            self._service.clear_active_anchor()
         self._midi_index = midi_index
         self._camera_index = camera_index
         self._controller.load_pair(midi_index, camera_index)
@@ -269,13 +273,18 @@ class Level2View(QWidget):
 
     def _on_midi_combo_changed(self, index: int):
         if index >= 0:
+            if self._service is not None:
+                self._service.clear_active_anchor()
             self._load_midi_file(index)
+            self._refresh_anchor_table()
             if self._controller is not None and self._controller.mode == Mode.LOCKED:
                 self._sync_from_camera()
             self._update_overlap()
 
     def _on_camera_combo_changed(self, index: int):
         if index >= 0:
+            if self._service is not None:
+                self._service.clear_active_anchor()
             self._load_camera_file(index)
             if self._controller is not None and self._controller.mode == Mode.LOCKED:
                 self._sync_from_camera()
@@ -292,9 +301,7 @@ class Level2View(QWidget):
         self._update_status_line()
 
         if new_mode == Mode.LOCKED:
-            # Anchor lock rule: if active anchor, switch MIDI to anchor's file
-            self._apply_anchor_lock_rule()
-            # Sync panels when entering locked mode (even without anchor)
+            # Sync panels when entering locked mode
             self._sync_from_camera()
             # Rebind overlap widget to current mf/cf/eff; _sync_from_camera
             # only pushes playheads, not bar extents.
@@ -307,43 +314,6 @@ class Level2View(QWidget):
     def _reset_panels_to_normal(self):
         self._midi_panel.show_normal()
         self._camera_panel.show_normal()
-
-    def _apply_anchor_lock_rule(self):
-        """When locked + anchor active, auto-switch MIDI file to anchor's reference."""
-        if self._state is None or self._controller is None:
-            return
-        cf = self._state.camera_files[self._camera_index]
-        anchor = cf.get_active_anchor()
-        locked = self._controller.mode == Mode.LOCKED
-        if anchor is not None and locked:
-            # Find MIDI file index matching anchor's midi_filename
-            target_index = None
-            for i, mf in enumerate(self._state.midi_files):
-                if mf.filename == anchor.midi_filename:
-                    target_index = i
-                    break
-            if target_index is None:
-                return
-
-            # Always lock the combo to the anchor's file
-            self._midi_combo.blockSignals(True)
-            self._midi_combo.setCurrentIndex(target_index)
-            self._midi_combo.setEnabled(False)
-            self._midi_combo.blockSignals(False)
-
-            # Only reload if switching to a different MIDI file
-            if target_index != self._midi_index:
-                self._load_midi_file(target_index)
-                # Notify controller of the MIDI-file switch so its sync math uses it.
-                self._controller.load_pair(target_index, self._camera_index)
-                self._controller.set_mode(Mode.LOCKED)
-                # Navigate to the anchor's position in the new file
-                self._midi_panel.set_position(anchor.midi_timestamp_seconds)
-
-            # Sync panels based on current camera position
-            self._sync_from_camera()
-        else:
-            self._midi_combo.setEnabled(True)
 
     # --- Locked mode navigation ---
 
@@ -589,16 +559,26 @@ class Level2View(QWidget):
             return
         cf = self._state.camera_files[self._camera_index]
         midi_lookup = {mf.filename: mf for mf in self._state.midi_files}
-        self._anchor_table.set_data(cf, midi_lookup, self._state.global_shift_seconds)
+        current_midi_filename = None
+        if 0 <= self._midi_index < len(self._state.midi_files):
+            current_midi_filename = self._state.midi_files[self._midi_index].filename
+        self._anchor_table.set_data(
+            cf,
+            midi_lookup,
+            self._state.global_shift_seconds,
+            current_midi_filename,
+        )
 
     def _on_anchor_activated(self, index: int):
-        self._apply_anchor_lock_rule()
+        if self._controller is not None and self._controller.mode == Mode.LOCKED:
+            self._sync_from_camera()
         self._update_overlap()
         self.state_modified.emit()
 
     def _on_anchor_deactivated(self):
-        self._midi_combo.setEnabled(True)
         self._reset_panels_to_normal()
+        if self._controller is not None and self._controller.mode == Mode.LOCKED:
+            self._sync_from_camera()
         self._update_overlap()
         self.state_modified.emit()
 
@@ -607,10 +587,23 @@ class Level2View(QWidget):
         if cf.get_active_anchor() is None:
             # Active anchor was just deleted (service clears active_anchor_index
             # when its index matches). Mirror _on_anchor_deactivated cleanup.
-            self._midi_combo.setEnabled(True)
             self._reset_panels_to_normal()
+            if self._controller is not None and self._controller.mode == Mode.LOCKED:
+                self._sync_from_camera()
         self._update_overlap()
         self.state_modified.emit()
+
+    def _on_anchor_midi_jump(self, midi_seconds: float):
+        """Double-click on an anchor row's MIDI Time cell."""
+        self._set_active_panel("midi")
+        self._midi_panel.show_normal()
+        self._midi_panel.set_position(midi_seconds)
+
+    def _on_anchor_camera_jump(self, frame: int):
+        """Double-click on an anchor row's Camera Frame cell."""
+        self._set_active_panel("camera")
+        self._camera_panel.show_normal()
+        self._camera_panel.set_frame(frame)
 
     # --- Overlap navigation bar ---
 
@@ -782,6 +775,8 @@ class Level2View(QWidget):
 
     def _on_back_requested(self) -> None:
         """Exit the pair. Drop the probe dot so returning to any pair starts fresh."""
+        if self._service is not None:
+            self._service.clear_active_anchor()
         # clear_dot emits dot_cleared → _on_camera_dot_cleared clears the plot
         # and nulls _last_sample_request, so any in-flight sample's late result
         # gets discarded when it arrives.
