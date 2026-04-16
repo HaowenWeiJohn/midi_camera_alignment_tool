@@ -16,6 +16,13 @@ You set it by either:
 - typing a seconds value into the Level 1 **Global Shift** spinbox and clicking **Apply**, or
 - marking one MIDI keystroke and its matching video frame in Level 2 and clicking **Compute Global Shift**.
 
+The two are intended to be used **in sequence**, not as alternatives:
+
+1. **Rough pass on Level 1** — enter an approximate seconds value into the spinbox and click **Apply**. The camera row visibly slides toward the MIDI row; adjust the number until the two tracks are roughly overlapping on the timeline. This is an eyeball exercise — you're aiming for "close enough that the clips overlap," not frame accuracy.
+2. **Precise pass on Level 2** — once the tracks visually align, select a MIDI/camera pair and drill into Level 2. There's now enough overlap for you to find the same keystroke in both panels, mark it with ++m++ and ++c++, and click **Compute Global Shift** to derive the exact value from those two markers.
+
+Doing the rough pass first makes the Level 2 step much easier: before the rough alignment, you'd be scrubbing through minutes of empty video looking for a matching keystroke; after the rough alignment, the matching frame is within a few seconds of the MIDI event.
+
 In both cases the tool enforces one **critical invariant**: *changing the global shift invalidates every anchor.* Anchors are defined relative to the current global shift, so a different global shift changes what each anchor means. Rather than silently rewriting them, the tool prompts you to confirm clearing them (`alignment_tool/services/alignment_service.py:27-44`).
 
 ## Phase 2 — Per-clip anchors
