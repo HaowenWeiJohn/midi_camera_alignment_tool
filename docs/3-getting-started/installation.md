@@ -35,7 +35,7 @@ Pick the recipe that matches how you manage Python environments — both are aut
     All five dependencies are on `conda-forge`. The `pyqt=5` pin avoids picking up PyQt6, which the app does not support.
 
     ```bash
-    conda create -n alignment -c conda-forge python=3.11 "pyqt=5" mido pretty_midi opencv numpy
+    conda create -n alignment -c conda-forge python=3.12 "pyqt=5" mido pretty_midi opencv numpy
     conda activate alignment
     ```
 
