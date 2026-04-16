@@ -1819,6 +1819,12 @@
 <li>typing a seconds value into the Level 1 <strong>Global Shift</strong> spinbox and clicking <strong>Apply</strong>, or</li>
 <li>marking one MIDI keystroke and its matching video frame in Level 2 and clicking <strong>Compute Global Shift</strong>.</li>
 </ul>
+<p>The two are intended to be used <strong>in sequence</strong>, not as alternatives:</p>
+<ol>
+<li><strong>Rough pass on Level 1</strong> — enter an approximate seconds value into the spinbox and click <strong>Apply</strong>. The camera row visibly slides toward the MIDI row; adjust the number until the two tracks are roughly overlapping on the timeline. This is an eyeball exercise — you're aiming for "close enough that the clips overlap," not frame accuracy.</li>
+<li><strong>Precise pass on Level 2</strong> — once the tracks visually align, select a MIDI/camera pair and drill into Level 2. There's now enough overlap for you to find the same keystroke in both panels, mark it with <span class="keys"><kbd class="key-m">M</kbd></span> and <span class="keys"><kbd class="key-c">C</kbd></span>, and click <strong>Compute Global Shift</strong> to derive the exact value from those two markers.</li>
+</ol>
+<p>Doing the rough pass first makes the Level 2 step much easier: before the rough alignment, you'd be scrubbing through minutes of empty video looking for a matching keystroke; after the rough alignment, the matching frame is within a few seconds of the MIDI event.</p>
 <p>In both cases the tool enforces one <strong>critical invariant</strong>: <em>changing the global shift invalidates every anchor.</em> Anchors are defined relative to the current global shift, so a different global shift changes what each anchor means. Rather than silently rewriting them, the tool prompts you to confirm clearing them (<code>alignment_tool/services/alignment_service.py:27-44</code>).</p>
 <h2 id="phase-2-per-clip-anchors">Phase 2 — Per-clip anchors<a class="headerlink" href="#phase-2-per-clip-anchors" title="Permanent link">&para;</a></h2>
 <p>If the global shift leaves some specific camera clip slightly misaligned (for example, because the camera was briefly stopped and restarted and the mtime-based start time is a little off), you can add an <code>Anchor</code> to that clip.</p>
