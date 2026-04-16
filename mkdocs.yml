@@ -1,0 +1,84 @@
+site_name: MIDI-Camera Alignment Tool
+site_description: Documentation for the MIDI–Camera alignment tool used to sync overhead video with Disklavier MIDI recordings.
+repo_url: https://github.com/HaowenWeiJohn/midi_camera_alignment_tool
+repo_name: HaowenWeiJohn/midi_camera_alignment_tool
+edit_uri: edit/main/docs/
+
+exclude_docs: |
+  archive/
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.keys
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - 1. Motivation:
+      - Why alignment is needed: 1-motivation/why-alignment.md
+      - The two-phase approach: 1-motivation/two-phase-approach.md
+  - 2. How data is derived:
+      - MIDI files: 2-how-data-is-derived/midi-files.md
+      - Camera files: 2-how-data-is-derived/camera-files.md
+      - Folder scanning: 2-how-data-is-derived/folder-scanning.md
+  - 3. Getting started:
+      - Installation: 3-getting-started/installation.md
+      - Data layout: 3-getting-started/data-layout.md
+      - First launch: 3-getting-started/first-launch.md
+  - 4. Tutorials:
+      - First alignment: 4-tutorials/first-alignment.md
+      - Refining with anchors: 4-tutorials/refining-with-anchors.md
+      - Using the intensity probe: 4-tutorials/using-intensity-probe.md
+  - 5. Reference:
+      - Main window: 5-reference/main-window.md
+      - Level 1 timeline: 5-reference/level-1-timeline.md
+      - Level 2 view: 5-reference/level-2-view.md
+      - MIDI panel: 5-reference/midi-panel.md
+      - Camera panel: 5-reference/camera-panel.md
+      - Overlap indicator: 5-reference/overlap-indicator.md
+      - Intensity plot: 5-reference/intensity-plot.md
+      - Anchor table: 5-reference/anchor-table.md
+      - Modes: 5-reference/modes.md
+      - Keyboard shortcuts: 5-reference/keyboard-shortcuts.md
+  - 6. Project files:
+      - Saving and loading: 6-project-files/saving-and-loading.md
+      - JSON schema (v1): 6-project-files/json-schema.md
+      - Moving participant folders: 6-project-files/moving-participant-folders.md
+  - 7. Troubleshooting:
+      - Known issues: 7-troubleshooting/known-issues.md
+      - Error messages: 7-troubleshooting/error-messages.md
+      - FAQ: 7-troubleshooting/faq.md
