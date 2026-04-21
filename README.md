@@ -16,16 +16,7 @@ python -m alignment_tool
 
 ## Documentation
 
-Full user documentation lives under [`docs/`](docs/index.md) and is published via GitHub Pages.
-
-Quick jumps:
-
-- [Why this tool exists](docs/1-motivation/why-alignment.md)
-- [How data is derived from each file](docs/2-how-data-is-derived/midi-files.md)
-- [Getting started](docs/3-getting-started/installation.md)
-- [First alignment walkthrough](docs/4-tutorials/first-alignment.md)
-- [Keyboard shortcuts](docs/5-reference/keyboard-shortcuts.md)
-- [JSON schema (v1)](docs/6-project-files/json-schema.md)
+**📖 [Read the docs](https://haowenweijohn.github.io/midi_camera_alignment_tool/)**
 
 ## Tests
 
