@@ -20,8 +20,11 @@ class AnchorTableWidget(QWidget):
     anchor_activated = pyqtSignal(int)  # anchor index
     anchor_deactivated = pyqtSignal()
     anchor_deleted = pyqtSignal(int)  # anchor index
+    anchor_label_changed = pyqtSignal(int)  # anchor index
     midi_time_jump_requested = pyqtSignal(float)  # seconds into MIDI
     camera_frame_jump_requested = pyqtSignal(int)  # camera frame
+
+    LABEL_COL = 5
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -32,6 +35,8 @@ class AnchorTableWidget(QWidget):
         self._service: AlignmentService | None = None
         self._camera_index: int = 0
         self._current_midi_filename: str | None = None
+        # Guard against itemChanged firing while _refresh populates cells.
+        self._populating: bool = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
@@ -56,9 +61,15 @@ class AnchorTableWidget(QWidget):
         self._table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
         self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # Editing is restricted to the Label column via per-item flags in
+        # _refresh; keep the table-wide triggers enabled so double-click /
+        # edit-key open the editor on that column only.
+        self._table.setEditTriggers(
+            QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed
+        )
         self._table.cellClicked.connect(self._on_cell_clicked)
         self._table.cellDoubleClicked.connect(self._on_cell_double_clicked)
+        self._table.itemChanged.connect(self._on_item_changed)
         self._table.itemSelectionChanged.connect(
             lambda: self._delete_btn.setEnabled(bool(self._table.selectedItems()))
         )
@@ -101,59 +112,112 @@ class AnchorTableWidget(QWidget):
         self._refresh()
 
     def _refresh(self):
-        self._table.setRowCount(0)
-        if self._camera_info is None:
+        # Suppress itemChanged while we repopulate; otherwise every setItem
+        # below would round-trip through _on_item_changed and call the service.
+        self._populating = True
+        try:
+            self._table.setRowCount(0)
+            if self._camera_info is None:
+                return
+
+            for i, anchor in enumerate(self._camera_info.alignment_anchors):
+                self._table.insertRow(i)
+                matches = (
+                    self._current_midi_filename is None
+                    or anchor.midi_filename == self._current_midi_filename
+                )
+
+                # #
+                self._table.setItem(i, 0, self._read_only_item(str(i + 1)))
+
+                # MIDI File
+                self._table.setItem(i, 1, self._read_only_item(anchor.midi_filename))
+
+                # MIDI Time (s)
+                self._table.setItem(
+                    i, 2, self._read_only_item(f"{anchor.midi_timestamp_seconds:.3f}")
+                )
+
+                # Camera Frame
+                self._table.setItem(i, 3, self._read_only_item(str(anchor.camera_frame)))
+
+                # Derived Shift (s)
+                midi = self._midi_lookup.get(anchor.midi_filename)
+                if midi:
+                    shift = compute_anchor_shift(anchor, self._camera_info, midi, self._global_shift)
+                    self._table.setItem(i, 4, self._read_only_item(f"{shift:.4f}"))
+                else:
+                    self._table.setItem(i, 4, self._read_only_item("N/A"))
+
+                # Label — editable for rows whose MIDI matches the current pair.
+                label_item = QTableWidgetItem(anchor.label)
+                if matches:
+                    label_item.setFlags(label_item.flags() | Qt.ItemIsEditable)
+                    label_item.setToolTip("Double-click to edit label")
+                else:
+                    label_item.setFlags(label_item.flags() & ~Qt.ItemIsEditable)
+                self._table.setItem(i, self.LABEL_COL, label_item)
+
+                # Active — only render * when this row's MIDI matches the displayed one.
+                is_active = matches and (i == self._camera_info.active_anchor_index)
+                active_item = QTableWidgetItem("*" if is_active else "")
+                active_item.setTextAlignment(Qt.AlignCenter)
+                active_item.setFlags(active_item.flags() & ~Qt.ItemIsEditable)
+                if is_active:
+                    active_item.setBackground(Qt.darkGreen)
+                    active_item.setForeground(Qt.white)
+                self._table.setItem(i, 6, active_item)
+
+                if not matches:
+                    gray = QBrush(Qt.gray)
+                    for col in range(7):
+                        item = self._table.item(i, col)
+                        if item is None:
+                            continue
+                        item.setFlags(
+                            item.flags() & ~Qt.ItemIsEnabled & ~Qt.ItemIsSelectable
+                        )
+                        item.setForeground(gray)
+        finally:
+            self._populating = False
+
+    @staticmethod
+    def _read_only_item(text: str) -> QTableWidgetItem:
+        item = QTableWidgetItem(text)
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        return item
+
+    def _on_item_changed(self, item: QTableWidgetItem):
+        if self._populating:
             return
-
-        for i, anchor in enumerate(self._camera_info.alignment_anchors):
-            self._table.insertRow(i)
-            matches = (
-                self._current_midi_filename is None
-                or anchor.midi_filename == self._current_midi_filename
-            )
-
-            # #
-            self._table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
-
-            # MIDI File
-            self._table.setItem(i, 1, QTableWidgetItem(anchor.midi_filename))
-
-            # MIDI Time (s)
-            self._table.setItem(i, 2, QTableWidgetItem(f"{anchor.midi_timestamp_seconds:.3f}"))
-
-            # Camera Frame
-            self._table.setItem(i, 3, QTableWidgetItem(str(anchor.camera_frame)))
-
-            # Derived Shift (s)
-            midi = self._midi_lookup.get(anchor.midi_filename)
-            if midi:
-                shift = compute_anchor_shift(anchor, self._camera_info, midi, self._global_shift)
-                self._table.setItem(i, 4, QTableWidgetItem(f"{shift:.4f}"))
-            else:
-                self._table.setItem(i, 4, QTableWidgetItem("N/A"))
-
-            # Label
-            self._table.setItem(i, 5, QTableWidgetItem(anchor.label))
-
-            # Active — only render * when this row's MIDI matches the displayed one.
-            is_active = matches and (i == self._camera_info.active_anchor_index)
-            active_item = QTableWidgetItem("*" if is_active else "")
-            active_item.setTextAlignment(Qt.AlignCenter)
-            if is_active:
-                active_item.setBackground(Qt.darkGreen)
-                active_item.setForeground(Qt.white)
-            self._table.setItem(i, 6, active_item)
-
-            if not matches:
-                gray = QBrush(Qt.gray)
-                for col in range(7):
-                    item = self._table.item(i, col)
-                    if item is None:
-                        continue
-                    item.setFlags(
-                        item.flags() & ~Qt.ItemIsEnabled & ~Qt.ItemIsSelectable
-                    )
-                    item.setForeground(gray)
+        if item.column() != self.LABEL_COL:
+            return
+        if self._camera_info is None or self._service is None:
+            return
+        row = item.row()
+        if not (0 <= row < len(self._camera_info.alignment_anchors)):
+            return
+        anchor = self._camera_info.alignment_anchors[row]
+        # Grayed-out rows are disabled, but block edits defensively anyway.
+        if (
+            self._current_midi_filename is not None
+            and anchor.midi_filename != self._current_midi_filename
+        ):
+            return
+        new_label = item.text()
+        if new_label == anchor.label:
+            return
+        try:
+            self._service.set_anchor_label(self._camera_index, row, new_label)
+        except AlignmentToolError:
+            # Revert the cell to the model value on failure.
+            self._populating = True
+            try:
+                item.setText(anchor.label)
+            finally:
+                self._populating = False
+            return
+        self.anchor_label_changed.emit(row)
 
     def _on_cell_clicked(self, row: int, col: int):
         if self._camera_info is None or self._service is None:

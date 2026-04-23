@@ -42,4 +42,7 @@ Mouse interactions are covered on each widget's reference page:
 
 ## What about typing into controls?
 
-Menu shortcuts (++ctrl+o++ etc.) work regardless of focus. Level 2 letter shortcuts (++m++, ++c++, ++l++, ++a++, ++o++) likewise fire regardless of focus — there are no text-input widgets in Level 2 that would swallow the keypress. The only input text dialog is the "Anchor Label" prompt, which is modal and blocks shortcut routing until you confirm or cancel.
+Menu shortcuts (++ctrl+o++ etc.) work regardless of focus. Level 2 letter shortcuts (++m++, ++c++, ++l++, ++a++, ++o++) likewise fire regardless of focus — with two exceptions:
+
+- The "Anchor Label" input dialog shown when adding an anchor is modal and blocks shortcut routing until you confirm or cancel.
+- The anchor table's **Label** cell opens an inline editor when you double-click it (or press ++f2++ on a selected row). While that editor is focused, letter keys are absorbed by the editor. Press ++enter++ or ++esc++ (or click outside) to release focus and re-enable the shortcuts.

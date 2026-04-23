@@ -22,6 +22,9 @@ The drift is almost always within one or two seconds on clips recorded back-to-b
 
 The markers clear after the anchor is created, ready for the next one.
 
+!!! tip "Revising a label later"
+    You don't have to commit to the label from the popup. **Double-click** the **Label** cell (or select the row and press ++f2++) to edit it in place; ++enter++ commits, ++esc++ cancels. The edit marks the session dirty, same as any other anchor change.
+
 ## Activating an anchor
 
 An anchor sitting in the table does nothing on its own. To apply its correction to the clip, **click the cell in the Active column** for that row. A `*` appears and the cell turns dark green — the anchor is now active. If Locked mode is on, the two panels re-sync using the new `effective_shift`.

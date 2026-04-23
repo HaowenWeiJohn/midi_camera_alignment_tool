@@ -175,6 +175,44 @@ def test_set_active_anchor_bad_index_raises():
         svc.set_active_anchor(0, 99)
 
 
+# --- set_anchor_label ---
+
+def test_set_anchor_label_updates_label():
+    state = _state_with_two_anchors()
+    svc = AlignmentService(state)
+
+    svc.set_anchor_label(0, 1, "keypress A")
+
+    assert state.camera_files[0].alignment_anchors[1].label == "keypress A"
+    assert state.camera_files[0].alignment_anchors[0].label == ""
+
+
+def test_set_anchor_label_accepts_empty_string():
+    midi = make_midi_file(filename="m1.mid")
+    anchor = make_anchor(midi_filename="m1.mid", label="old")
+    cam = make_camera_file(anchors=[anchor])
+    state = make_state(midi_files=[midi], camera_files=[cam])
+    svc = AlignmentService(state)
+
+    svc.set_anchor_label(0, 0, "")
+
+    assert cam.alignment_anchors[0].label == ""
+
+
+def test_set_anchor_label_bad_camera_index_raises():
+    state = _state_with_two_anchors()
+    svc = AlignmentService(state)
+    with pytest.raises(InvalidAnchorError):
+        svc.set_anchor_label(99, 0, "x")
+
+
+def test_set_anchor_label_bad_anchor_index_raises():
+    state = _state_with_two_anchors()
+    svc = AlignmentService(state)
+    with pytest.raises(InvalidAnchorError):
+        svc.set_anchor_label(0, 99, "x")
+
+
 # --- effective_shift_for ---
 
 def test_effective_shift_no_anchor_returns_global():

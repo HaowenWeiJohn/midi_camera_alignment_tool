@@ -170,6 +170,7 @@ class Level2View(QWidget):
         self._anchor_table.anchor_activated.connect(self._on_anchor_activated)
         self._anchor_table.anchor_deactivated.connect(self._on_anchor_deactivated)
         self._anchor_table.anchor_deleted.connect(self._on_anchor_deleted)
+        self._anchor_table.anchor_label_changed.connect(self._on_anchor_label_changed)
         self._anchor_table.midi_time_jump_requested.connect(self._on_anchor_midi_jump)
         self._anchor_table.camera_frame_jump_requested.connect(self._on_anchor_camera_jump)
         self._anchor_table.setMaximumHeight(200)
@@ -619,6 +620,11 @@ class Level2View(QWidget):
         if self._controller is not None and self._controller.mode == Mode.LOCKED:
             self._sync_from_camera()
         self._update_overlap()
+        self.state_modified.emit()
+
+    def _on_anchor_label_changed(self, index: int):
+        # Label edits don't affect shifts or geometry, so no panel resync needed.
+        # Just mark the state dirty so Save/Ctrl+S / close-prompt pick it up.
         self.state_modified.emit()
 
     def _on_anchor_deleted(self, index: int):

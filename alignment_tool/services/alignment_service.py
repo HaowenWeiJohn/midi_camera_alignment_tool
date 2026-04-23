@@ -68,6 +68,16 @@ class AlignmentService:
         elif active > anchor_index:
             cf.active_anchor_index = active - 1
 
+    def set_anchor_label(
+        self, camera_index: int, anchor_index: int, label: str,
+    ) -> None:
+        cf = self._get_camera(camera_index)
+        if not (0 <= anchor_index < len(cf.alignment_anchors)):
+            raise InvalidAnchorError(
+                f"anchor_index {anchor_index} out of range for camera {camera_index}",
+            )
+        cf.alignment_anchors[anchor_index].label = label
+
     def set_active_anchor(
         self, camera_index: int, anchor_index: int | None,
     ) -> None:
