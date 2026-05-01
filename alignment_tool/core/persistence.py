@@ -8,6 +8,7 @@ import json
 import math
 import os
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 from alignment_tool.core.errors import (
@@ -21,7 +22,8 @@ SCHEMA_VERSION = 1
 
 
 def save_alignment(state: AlignmentState, filepath: str) -> None:
-    """Serialize AlignmentState to JSON atomically."""
+    """Serialize AlignmentState to JSON atomically. Updates state.saved_at to the wall-clock save time."""
+    state.saved_at = datetime.now(timezone.utc).isoformat()
     data = _state_to_dict(state)
     target = Path(filepath)
     target_dir = target.parent if target.parent != Path("") else Path(".")
@@ -97,6 +99,7 @@ def _state_to_dict(state: AlignmentState) -> dict:
     pf = state.participant_folder
     return {
         "schema_version": SCHEMA_VERSION,
+        "saved_at": state.saved_at,
         "participant_id": state.participant_id,
         "participant_folder": state.participant_folder,
         "global_shift_seconds": state.global_shift_seconds,
@@ -150,6 +153,7 @@ def _dict_to_state(data: dict) -> AlignmentState:
         participant_folder=pf,
         global_shift_seconds=data["global_shift_seconds"],
         alignment_notes=data.get("alignment_notes", ""),
+        saved_at=data.get("saved_at"),
         midi_files=[_dict_to_midi(m, pf) for m in data["midi_files"]],
         camera_files=[_dict_to_camera(c, pf) for c in data["camera_files"]],
     )

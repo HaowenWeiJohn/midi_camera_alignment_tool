@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -59,6 +60,7 @@ def test_round_trip_preserves_all_fields(tmp_path: Path):
     # active_anchor_index is session-only; always loads as None.
     assert loaded.camera_files[0].active_anchor_index is None
     assert loaded.camera_files[0].alignment_anchors[0].label == "keypress A"
+    assert loaded.saved_at == state.saved_at
 
 
 def test_saved_file_has_schema_version(tmp_path: Path):
@@ -333,3 +335,55 @@ def test_rebase_paths_updates_all_paths(tmp_path: Path):
     assert os.path.normpath(state.camera_files[0].xml_path) == os.path.normpath(
         new_pf + "/overhead camera/C0001M01.XML"
     )
+
+
+# --- saved_at timestamp tests ---
+
+
+def test_save_writes_saved_at_field(tmp_path: Path):
+    state = make_state()
+    filepath = tmp_path / "align.json"
+    persistence.save_alignment(state, str(filepath))
+    with open(filepath) as f:
+        data = json.load(f)
+    assert isinstance(data["saved_at"], str)
+    # Round-trips through datetime.fromisoformat without raising.
+    datetime.fromisoformat(data["saved_at"])
+
+
+def test_save_updates_state_saved_at_in_place(tmp_path: Path):
+    state = make_state()
+    assert state.saved_at is None
+    filepath = tmp_path / "align.json"
+    persistence.save_alignment(state, str(filepath))
+    assert state.saved_at is not None
+    with open(filepath) as f:
+        data = json.load(f)
+    assert data["saved_at"] == state.saved_at
+
+
+def test_load_legacy_file_without_saved_at(tmp_path: Path):
+    """Pre-existing v1 JSONs that predate saved_at must load with saved_at=None."""
+    state = make_state()
+    filepath = tmp_path / "legacy.json"
+    persistence.save_alignment(state, str(filepath))
+
+    # Strip the saved_at key the way a pre-feature save would have produced.
+    with open(filepath) as f:
+        data = json.load(f)
+    data.pop("saved_at", None)
+    with open(filepath, "w") as f:
+        json.dump(data, f)
+
+    loaded = persistence.load_alignment(str(filepath))
+    assert loaded.saved_at is None
+    assert loaded.participant_id == state.participant_id
+
+
+def test_round_trip_preserves_saved_at(tmp_path: Path):
+    state = make_state()
+    filepath = tmp_path / "align.json"
+    persistence.save_alignment(state, str(filepath))
+    written = state.saved_at
+    loaded = persistence.load_alignment(str(filepath))
+    assert loaded.saved_at == written

@@ -51,6 +51,7 @@ class AlignmentState:
     midi_files: list[MidiFileInfo] = field(default_factory=list)
     camera_files: list[CameraFileInfo] = field(default_factory=list)
     alignment_notes: str = ""
+    saved_at: str | None = None  # ISO 8601 UTC; set by persistence.save_alignment
 
     def midi_file_by_name(self, filename: str) -> MidiFileInfo | None:
         for mf in self.midi_files:
