@@ -1,7 +1,9 @@
 """Lightweight MIDI file adapter for the alignment tool.
 
 Adapts the essential logic from examples/midi.py, fixing known issues:
-- Uses PrettyMIDI.get_end_time() for duration (avoids rounding error)
+- Uses mido.MidiFile.length for duration so the value reflects record-start
+  to record-stop (Disklavier writes end_of_track at stop, with up to tens of
+  seconds of silence after the last note that PrettyMIDI.get_end_time() drops).
 - Caches tempo extraction (avoids O(N) per call)
 - Drops unused dependencies (pysampled, datanavigator)
 - Uses file mtime as recording end time (some MIDI files lack the
@@ -88,8 +90,14 @@ class MidiAdapter:
 
     @property
     def duration(self) -> float:
-        """Total duration in seconds (from PrettyMIDI, handles tempo maps)."""
-        return self._pm.get_end_time()
+        """Recording duration in seconds, end_of_track inclusive.
+
+        For Disklavier files the gap between the last note_off and end_of_track
+        encodes how long after the music the user took to press STOP — that
+        gap belongs in the duration so unix_start = mtime - duration lands at
+        record-start.
+        """
+        return self._mido.length
 
     @property
     def notes(self) -> list:
