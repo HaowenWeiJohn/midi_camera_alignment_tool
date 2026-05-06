@@ -5,7 +5,13 @@ A PyQt5 desktop tool for temporally aligning overhead camera recordings (Sony FX
 ## Install
 
 ```bash
-python -m pip install PyQt5 mido pretty_midi opencv-python numpy
+python -m pip install -r requirements.txt
+```
+
+For running the test suite, install dev dependencies instead:
+
+```bash
+python -m pip install -r requirements-dev.txt
 ```
 
 ## Run

@@ -13,12 +13,20 @@ The tool is a standalone Python/PyQt5 application. It runs on Windows, macOS, an
 
 ## Install dependencies
 
-Pick the recipe that matches how you manage Python environments — both are authoritative. The tool has no `requirements.txt`.
+Pick the recipe that matches how you manage Python environments — both are authoritative.
 
 === "pip"
 
+    Runtime dependencies are pinned in `requirements.txt`:
+
     ```bash
-    python -m pip install PyQt5 mido pretty_midi opencv-python numpy
+    python -m pip install -r requirements.txt
+    ```
+
+    To run the test suite as well, use `requirements-dev.txt` (it includes the runtime deps plus `pytest`):
+
+    ```bash
+    python -m pip install -r requirements-dev.txt
     ```
 
     !!! tip "Use a virtual environment"
@@ -27,12 +35,12 @@ Pick the recipe that matches how you manage Python environments — both are aut
         python -m venv .venv
         source .venv/bin/activate        # Linux / macOS
         .venv\Scripts\activate           # Windows PowerShell / cmd
-        python -m pip install PyQt5 mido pretty_midi opencv-python numpy
+        python -m pip install -r requirements.txt
         ```
 
 === "conda"
 
-    All five dependencies are on `conda-forge`. The `pyqt=5` pin avoids picking up PyQt6, which the app does not support.
+    All five runtime dependencies are on `conda-forge`. The `pyqt=5` pin avoids picking up PyQt6, which the app does not support.
 
     ```bash
     conda create -n alignment -c conda-forge python=3.12 "pyqt=5" mido pretty_midi opencv numpy
@@ -46,7 +54,7 @@ Pick the recipe that matches how you manage Python environments — both are aut
     ```
 
     !!! note "Package names on conda-forge"
-        `pyqt` (with `=5` pin) provides **PyQt5**, and `opencv` provides the `cv2` Python binding — equivalent to `opencv-python` on PyPI. `mido`, `pretty_midi`, and `numpy` use the same names as pip.
+        `pyqt` (with `=5` pin) provides **PyQt5**, and `opencv` provides the `cv2` Python binding — equivalent to `opencv-python` on PyPI. `mido`, `pretty_midi`, and `numpy` use the same names as pip. The exact pinned versions live in `requirements.txt` (PyPI names) — match those if you want a reproducible environment.
 
 ## Get the code
 
