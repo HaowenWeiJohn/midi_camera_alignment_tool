@@ -1817,11 +1817,15 @@
 </li>
 </ul>
 <h2 id="install-dependencies">Install dependencies<a class="headerlink" href="#install-dependencies" title="Permanent link">&para;</a></h2>
-<p>Pick the recipe that matches how you manage Python environments — both are authoritative. The tool has no <code>requirements.txt</code>.</p>
+<p>Pick the recipe that matches how you manage Python environments — both are authoritative.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">pip</label><label for="__tabbed_1_2">conda</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>PyQt5<span class="w"> </span>mido<span class="w"> </span>pretty_midi<span class="w"> </span>opencv-python<span class="w"> </span>numpy
+<p>Runtime dependencies are pinned in <code>requirements.txt</code>:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</code></pre></div>
+<p>To run the test suite as well, use <code>requirements-dev.txt</code> (it includes the runtime deps plus <code>pytest</code>):</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-dev.txt
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Use a virtual environment</p>
@@ -1829,12 +1833,12 @@
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
 <span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">        </span><span class="c1"># Linux / macOS</span>
 .venv<span class="se">\S</span>cripts<span class="se">\a</span>ctivate<span class="w">           </span><span class="c1"># Windows PowerShell / cmd</span>
-python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>PyQt5<span class="w"> </span>mido<span class="w"> </span>pretty_midi<span class="w"> </span>opencv-python<span class="w"> </span>numpy
+python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
 </code></pre></div></p>
 </div>
 </div>
 <div class="tabbed-block">
-<p>All five dependencies are on <code>conda-forge</code>. The <code>pyqt=5</code> pin avoids picking up PyQt6, which the app does not support.</p>
+<p>All five runtime dependencies are on <code>conda-forge</code>. The <code>pyqt=5</code> pin avoids picking up PyQt6, which the app does not support.</p>
 <div class="highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>alignment<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.12<span class="w"> </span><span class="s2">&quot;pyqt=5&quot;</span><span class="w"> </span>mido<span class="w"> </span>pretty_midi<span class="w"> </span>opencv<span class="w"> </span>numpy
 conda<span class="w"> </span>activate<span class="w"> </span>alignment
 </code></pre></div>
@@ -1843,7 +1847,7 @@ conda<span class="w"> </span>activate<span class="w"> </span>alignment
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Package names on conda-forge</p>
-<p><code>pyqt</code> (with <code>=5</code> pin) provides <strong>PyQt5</strong>, and <code>opencv</code> provides the <code>cv2</code> Python binding — equivalent to <code>opencv-python</code> on PyPI. <code>mido</code>, <code>pretty_midi</code>, and <code>numpy</code> use the same names as pip.</p>
+<p><code>pyqt</code> (with <code>=5</code> pin) provides <strong>PyQt5</strong>, and <code>opencv</code> provides the <code>cv2</code> Python binding — equivalent to <code>opencv-python</code> on PyPI. <code>mido</code>, <code>pretty_midi</code>, and <code>numpy</code> use the same names as pip. The exact pinned versions live in <code>requirements.txt</code> (PyPI names) — match those if you want a reproducible environment.</p>
 </div>
 </div>
 </div>

@@ -1369,6 +1369,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#editing-a-label" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing a label
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#signals" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1830,6 +1841,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#editing-a-label" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing a label
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#signals" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1922,7 +1944,7 @@
 <tr>
 <td>5</td>
 <td><code>Label</code></td>
-<td><code>anchor.label</code> (free text, optional)</td>
+<td><code>anchor.label</code> (free text, optional). <strong>Editable in place</strong> — double-click the cell (or press <span class="keys"><kbd class="key-f2">F2</kbd></span> on a selected row) to open the editor; <span class="keys"><kbd class="key-enter">Enter</kbd></span> commits, <span class="keys"><kbd class="key-escape">Esc</kbd></span> cancels.</td>
 </tr>
 <tr>
 <td>6</td>
@@ -1931,10 +1953,10 @@
 </tr>
 </tbody>
 </table>
-<p>All columns stretch to fit the available width except <code>#</code> and <code>Active</code>, which resize to their contents. Rows are not editable.</p>
+<p>All columns stretch to fit the available width except <code>#</code> and <code>Active</code>, which resize to their contents. Only the <strong>Label</strong> column is editable; every other cell is read-only.</p>
 <h2 id="header-buttons">Header buttons<a class="headerlink" href="#header-buttons" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Add Anchor (A)</strong> — injected by Level 2 into the header row (see <code>add_header_action</code>). Disabled until both markers are set. Clicking opens an input dialog for an optional label, then calls <code>AlignmentService.add_anchor</code> with the anchor built from the markers.</li>
+<li><strong>Add Anchor (A)</strong> — injected by Level 2 into the header row (see <code>add_header_action</code>). Disabled until both markers are set. Clicking opens an input dialog for an optional label, then calls <code>AlignmentService.add_anchor</code> with the anchor built from the markers. The label can also be revised later by editing the <strong>Label</strong> cell directly; see <a href="#editing-a-label">Editing a label</a> below.</li>
 <li><strong>Delete Selected</strong> — disabled until a row is selected. Deletes the currently-selected anchor via <code>AlignmentService.delete_anchor</code>, which also repairs <code>active_anchor_index</code> if the deleted anchor was active (sets it to <code>None</code>) or earlier in the list than the active one (shifts it down by 1).</li>
 </ul>
 <h2 id="filtering">Filtering<a class="headerlink" href="#filtering" title="Permanent link">&para;</a></h2>
@@ -1967,11 +1989,23 @@
 <td>Emit <code>camera_frame_jump_requested(frame)</code> → Level 2 jumps the camera panel to that frame and makes it the active panel. Ignored for greyed rows.</td>
 </tr>
 <tr>
+<td><strong>Double-click</strong> on <code>Label</code> (col 5)</td>
+<td>Opens an inline editor in the cell. <span class="keys"><kbd class="key-enter">Enter</kbd></span> commits the new label via <code>AlignmentService.set_anchor_label</code>, then emits <code>anchor_label_changed(row)</code>. <span class="keys"><kbd class="key-escape">Esc</kbd></span> cancels with no write. Ignored for greyed rows (the cell is non-editable).</td>
+</tr>
+<tr>
 <td><strong>Row selection</strong></td>
 <td>Enables/disables <strong>Delete Selected</strong>. Multiple selection is disabled.</td>
 </tr>
 </tbody>
 </table>
+<h2 id="editing-a-label">Editing a label<a class="headerlink" href="#editing-a-label" title="Permanent link">&para;</a></h2>
+<p>The <strong>Label</strong> column is the only editable cell in the table. To edit:</p>
+<ol>
+<li><strong>Double-click</strong> the Label cell (or select the row and press <span class="keys"><kbd class="key-f2">F2</kbd></span>). An inline editor opens over the cell.</li>
+<li>Type the new label. While the editor is open, letter shortcuts like <span class="keys"><kbd class="key-m">M</kbd></span>, <span class="keys"><kbd class="key-c">C</kbd></span>, <span class="keys"><kbd class="key-a">A</kbd></span>, <span class="keys"><kbd class="key-l">L</kbd></span> are absorbed by the editor, not the Level 2 shortcuts — click outside or press <span class="keys"><kbd class="key-enter">Enter</kbd></span>/<span class="keys"><kbd class="key-escape">Esc</kbd></span> to release focus.</li>
+<li>Press <span class="keys"><kbd class="key-enter">Enter</kbd></span> to commit, or <span class="keys"><kbd class="key-escape">Esc</kbd></span> to cancel.</li>
+</ol>
+<p>Committing routes the change through <code>AlignmentService.set_anchor_label(camera_index, anchor_index, label)</code> — the single mutation boundary — so the session is marked dirty via the <code>anchor_label_changed → state_modified</code> signal chain. Greyed-out rows (anchors tied to a different MIDI file) are not editable, matching the rule that only anchors for the currently-selected MIDI are actionable. Labels are stored as-is, including whitespace and empty strings; no validation is applied.</p>
 <h2 id="signals">Signals<a class="headerlink" href="#signals" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1994,6 +2028,10 @@
 <td>A row was successfully deleted via <strong>Delete Selected</strong></td>
 </tr>
 <tr>
+<td><code>anchor_label_changed(int)</code></td>
+<td>The Label cell was edited in place and committed</td>
+</tr>
+<tr>
 <td><code>midi_time_jump_requested(float)</code></td>
 <td>Double-click on col 2</td>
 </tr>
@@ -2003,10 +2041,10 @@
 </tr>
 </tbody>
 </table>
-<p>Level 2 catches all five and re-syncs the panels, refreshes the overlap bar, and marks the session dirty as appropriate.</p>
+<p>Level 2 catches all six and re-syncs the panels, refreshes the overlap bar, and marks the session dirty as appropriate.</p>
 <h2 id="what-the-table-doesnt-do">What the table doesn't do<a class="headerlink" href="#what-the-table-doesnt-do" title="Permanent link">&para;</a></h2>
 <ul>
-<li>No in-place editing — the anchor's MIDI time, camera frame, and label are immutable once created. To "edit" an anchor, delete it and add a new one.</li>
+<li>The anchor's MIDI time and camera frame are immutable once created — only the <strong>Label</strong> column supports in-place editing. To adjust a MIDI-time or camera-frame value, delete the anchor and add a new one.</li>
 <li>No multi-select or bulk delete.</li>
 <li>No import/export outside the main save/load. Anchors travel with the session JSON.</li>
 </ul>

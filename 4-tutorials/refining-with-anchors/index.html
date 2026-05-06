@@ -1890,6 +1890,10 @@
 <li>The new anchor appears as the last row in the table. Its <strong>Derived Shift (s)</strong> column shows the <code>anchor_shift</code> the tool computed for it.</li>
 </ol>
 <p>The markers clear after the anchor is created, ready for the next one.</p>
+<div class="admonition tip">
+<p class="admonition-title">Revising a label later</p>
+<p>You don't have to commit to the label from the popup. <strong>Double-click</strong> the <strong>Label</strong> cell (or select the row and press <span class="keys"><kbd class="key-f2">F2</kbd></span>) to edit it in place; <span class="keys"><kbd class="key-enter">Enter</kbd></span> commits, <span class="keys"><kbd class="key-escape">Esc</kbd></span> cancels. The edit marks the session dirty, same as any other anchor change.</p>
+</div>
 <h2 id="activating-an-anchor">Activating an anchor<a class="headerlink" href="#activating-an-anchor" title="Permanent link">&para;</a></h2>
 <p>An anchor sitting in the table does nothing on its own. To apply its correction to the clip, <strong>click the cell in the Active column</strong> for that row. A <code>*</code> appears and the cell turns dark green — the anchor is now active. If Locked mode is on, the two panels re-sync using the new <code>effective_shift</code>.</p>
 <p>Only <strong>one</strong> anchor per clip is active at any time. Clicking the Active cell on a different row deactivates the previous one and activates the new one. Clicking the Active cell on the already-active row deactivates it (<code>effective_shift</code> falls back to just <code>global_shift</code>).</p>
