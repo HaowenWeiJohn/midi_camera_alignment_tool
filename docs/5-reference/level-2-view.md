@@ -23,8 +23,8 @@ Level 2 is the per-pair alignment workspace. It shows a single MIDI file and a s
 ├─────────────────────────────┴───────────────────────────────────────┤
 │ Intensity plot (fixed 120 px) — shows ±120 frames around probe dot  │
 ├─────────────────────────────────────────────────────────────────────┤
-│ [Alignment Anchors] [Add Anchor (A)]           [Delete Selected]    │
-│ # | MIDI File | MIDI Time | Camera Frame | Derived Shift | Label |* │ ← anchor table
+│ [Alignment Anchors] [Add Anchor (A)]                [Delete Selected]   │
+│ # | MIDI File | MIDI Time | Camera Frame | Probe(x,y) | Derived | L |*  │ ← anchor table
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -45,7 +45,7 @@ Tooltips on **Compute Global Shift** and **Add Anchor (A)** read *"Set markers f
 Single grey line below the top bar, refreshed on every mode change and active-panel switch:
 
 ```
-Locked Mode  |  Active: MIDI (Tab to switch)  |  Arrows: navigate  |  L: toggle mode  |  M: mark MIDI  |  C: mark camera  |  A: add anchor  |  O: jump to overlap
+Locked Mode  |  Active: MIDI (Tab to switch)  |  Arrows: navigate  |  L: toggle mode  |  M: mark MIDI  |  C: mark camera  |  A: add anchor  |  R: re-sample intensity  |  O: jump to overlap
 ```
 
 ## Overlap indicator

@@ -387,3 +387,61 @@ def test_round_trip_preserves_saved_at(tmp_path: Path):
     written = state.saved_at
     loaded = persistence.load_alignment(str(filepath))
     assert loaded.saved_at == written
+
+
+# --- probe coords tests ---
+
+
+def test_round_trip_preserves_probe_coords(tmp_path: Path):
+    midi = make_midi_file(filename="t1.mid")
+    anchor = make_anchor(midi_filename="t1.mid", probe_x=512, probe_y=384)
+    cam = make_camera_file(anchors=[anchor])
+    state = make_state(midi_files=[midi], camera_files=[cam])
+
+    filepath = tmp_path / "align.json"
+    persistence.save_alignment(state, str(filepath))
+    loaded = persistence.load_alignment(str(filepath))
+
+    loaded_anchor = loaded.camera_files[0].alignment_anchors[0]
+    assert loaded_anchor.probe_x == 512
+    assert loaded_anchor.probe_y == 384
+
+
+def test_round_trip_preserves_unset_probe_coords(tmp_path: Path):
+    """Anchors created without a probe dot save/load with probe_x/y == None."""
+    midi = make_midi_file(filename="t1.mid")
+    anchor = make_anchor(midi_filename="t1.mid")  # no probe args
+    cam = make_camera_file(anchors=[anchor])
+    state = make_state(midi_files=[midi], camera_files=[cam])
+
+    filepath = tmp_path / "align.json"
+    persistence.save_alignment(state, str(filepath))
+    loaded = persistence.load_alignment(str(filepath))
+
+    loaded_anchor = loaded.camera_files[0].alignment_anchors[0]
+    assert loaded_anchor.probe_x is None
+    assert loaded_anchor.probe_y is None
+
+
+def test_load_legacy_anchor_without_probe_coords(tmp_path: Path):
+    """Pre-feature v1 JSONs without probe_x/probe_y must load with both as None."""
+    midi = make_midi_file(filename="t1.mid")
+    anchor = make_anchor(midi_filename="t1.mid")
+    cam = make_camera_file(anchors=[anchor])
+    state = make_state(midi_files=[midi], camera_files=[cam])
+
+    filepath = tmp_path / "legacy.json"
+    persistence.save_alignment(state, str(filepath))
+
+    # Strip the probe keys the way a pre-feature save would have produced.
+    with open(filepath) as f:
+        data = json.load(f)
+    data["camera_files"][0]["alignment_anchors"][0].pop("probe_x", None)
+    data["camera_files"][0]["alignment_anchors"][0].pop("probe_y", None)
+    with open(filepath, "w") as f:
+        json.dump(data, f)
+
+    loaded = persistence.load_alignment(str(filepath))
+    loaded_anchor = loaded.camera_files[0].alignment_anchors[0]
+    assert loaded_anchor.probe_x is None
+    assert loaded_anchor.probe_y is None

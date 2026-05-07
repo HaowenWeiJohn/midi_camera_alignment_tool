@@ -9,6 +9,8 @@ class Anchor:
     midi_timestamp_seconds: float  # seconds from MIDI file start
     camera_frame: int  # 0-indexed cv2 frame index
     label: str = ""
+    probe_x: int | None = None  # source-pixel x of intensity probe at anchor creation
+    probe_y: int | None = None
 
 
 @dataclass

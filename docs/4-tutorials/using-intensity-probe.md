@@ -31,6 +31,11 @@ Click anywhere on the plot to seek the camera there. This is much faster than st
 
 - Dropping the dot on a different pixel immediately cancels the old sample and starts a new one. The old plot is replaced as soon as the new one finishes.
 - Switching to a different camera clip or clicking **Back** clears the dot and the plot automatically — late results from the old clip are discarded so a stale trace cannot overwrite the new one.
+- Press ++r++ to **re-center the sample window on the current camera frame** without moving the dot. Useful when you've scrubbed far away and the playhead has fallen outside the original ±120-frame window. The dot's pixel stays where it is; only the sample's center frame changes.
+
+## Persistence
+
+When you press ++a++ to add an anchor, the **currently-active dot's source pixel** is captured into the anchor as `probe_x` / `probe_y`. The values appear in the new anchor row's **Probe (x, y)** column and round-trip through save/load. The luma values themselves are not saved — only the coordinates — so re-rendering the trace later requires sampling again. Double-click the **Probe (x, y)** cell on any saved anchor to re-drop the dot at those coords on the current frame and run a fresh sample. If you press ++a++ with no dot active, the column shows `—` and the anchor stores `null`.
 
 ## What the probe doesn't do
 

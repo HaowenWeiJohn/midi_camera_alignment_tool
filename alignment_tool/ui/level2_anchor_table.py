@@ -23,8 +23,12 @@ class AnchorTableWidget(QWidget):
     anchor_label_changed = pyqtSignal(int)  # anchor index
     midi_time_jump_requested = pyqtSignal(float)  # seconds into MIDI
     camera_frame_jump_requested = pyqtSignal(int)  # camera frame
+    probe_jump_requested = pyqtSignal(int, int)  # (src_x, src_y)
 
-    LABEL_COL = 5
+    PROBE_COL = 4
+    LABEL_COL = 6
+    ACTIVE_COL = 7
+    NUM_COLS = 8
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -51,14 +55,14 @@ class AnchorTableWidget(QWidget):
         self._header_layout.addWidget(self._delete_btn)
         layout.addLayout(self._header_layout)
 
-        self._table = QTableWidget(0, 7)
+        self._table = QTableWidget(0, self.NUM_COLS)
         self._table.setHorizontalHeaderLabels([
             "#", "MIDI File", "MIDI Time (s)", "Camera Frame",
-            "Derived Shift (s)", "Label", "Active",
+            "Probe (x,y)", "Derived Shift (s)", "Label", "Active",
         ])
         self._table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self._table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        self._table.horizontalHeader().setSectionResizeMode(self.ACTIVE_COL, QHeaderView.ResizeToContents)
         self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SingleSelection)
         # Editing is restricted to the Label column via per-item flags in
@@ -141,13 +145,23 @@ class AnchorTableWidget(QWidget):
                 # Camera Frame
                 self._table.setItem(i, 3, self._read_only_item(str(anchor.camera_frame)))
 
+                # Probe (x,y) — read-only; "—" when unset.
+                if anchor.probe_x is not None and anchor.probe_y is not None:
+                    probe_text = f"({anchor.probe_x}, {anchor.probe_y})"
+                else:
+                    probe_text = "—"
+                probe_item = self._read_only_item(probe_text)
+                if matches and anchor.probe_x is not None and anchor.probe_y is not None:
+                    probe_item.setToolTip("Double-click to drop probe dot at this pixel")
+                self._table.setItem(i, self.PROBE_COL, probe_item)
+
                 # Derived Shift (s)
                 midi = self._midi_lookup.get(anchor.midi_filename)
                 if midi:
                     shift = compute_anchor_shift(anchor, self._camera_info, midi, self._global_shift)
-                    self._table.setItem(i, 4, self._read_only_item(f"{shift:.4f}"))
+                    self._table.setItem(i, 5, self._read_only_item(f"{shift:.4f}"))
                 else:
-                    self._table.setItem(i, 4, self._read_only_item("N/A"))
+                    self._table.setItem(i, 5, self._read_only_item("N/A"))
 
                 # Label — editable for rows whose MIDI matches the current pair.
                 label_item = QTableWidgetItem(anchor.label)
@@ -166,11 +180,11 @@ class AnchorTableWidget(QWidget):
                 if is_active:
                     active_item.setBackground(Qt.darkGreen)
                     active_item.setForeground(Qt.white)
-                self._table.setItem(i, 6, active_item)
+                self._table.setItem(i, self.ACTIVE_COL, active_item)
 
                 if not matches:
                     gray = QBrush(Qt.gray)
-                    for col in range(7):
+                    for col in range(self.NUM_COLS):
                         item = self._table.item(i, col)
                         if item is None:
                             continue
@@ -222,7 +236,7 @@ class AnchorTableWidget(QWidget):
     def _on_cell_clicked(self, row: int, col: int):
         if self._camera_info is None or self._service is None:
             return
-        if col == 6:  # Active column — toggle
+        if col == self.ACTIVE_COL:  # Active column — toggle
             if not (0 <= row < len(self._camera_info.alignment_anchors)):
                 return
             anchor = self._camera_info.alignment_anchors[row]
@@ -254,6 +268,9 @@ class AnchorTableWidget(QWidget):
             self.midi_time_jump_requested.emit(anchor.midi_timestamp_seconds)
         elif col == 3:  # Camera Frame
             self.camera_frame_jump_requested.emit(anchor.camera_frame)
+        elif col == self.PROBE_COL:
+            if anchor.probe_x is not None and anchor.probe_y is not None:
+                self.probe_jump_requested.emit(anchor.probe_x, anchor.probe_y)
 
     def _on_delete(self):
         if self._camera_info is None or self._service is None:

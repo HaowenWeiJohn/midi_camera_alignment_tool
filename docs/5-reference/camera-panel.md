@@ -56,16 +56,17 @@ When `zoom > 1.0×`, left-mouse press-and-drag pans the image:
 - Pan is clamped so you can never drag the image past its own edge.
 - Pan is reset on double-click and on clip swap.
 
-## Intensity probe (right-click)
+## Intensity probe
 
-Right-click (`contextMenuEvent`) drops a **single intensity probe dot** at the clicked source pixel:
+Three ways to drop a **single intensity probe dot** at a source pixel — they all flow through the same `_drop_dot` helper that emits `dot_dropped(src_x, src_y, current_frame)`:
 
-- A 5-radius red circle (`rgba(255, 60, 60, 220)`) with a 1 px white outline is drawn on top of the frame.
-- `dot_dropped(src_x, src_y, current_frame)` is emitted; Level 2 forwards this to the `IntensityWorker` on its own `QThread` to sample ±120 frames of luma (see [§5.7 Intensity plot](intensity-plot.md)).
-- Dropping the dot outside the image (e.g. in the letterbox) is silently ignored.
-- Dropping a new dot replaces the old one.
+1. **Right-click** (`contextMenuEvent`): drops the dot at the clicked source pixel. Clicks outside the image (e.g. in the letterbox) are silently ignored.
+2. **Public method `drop_dot(src_x, src_y)`**: programmatic drop at the given source coords on the current frame. Caller-supplied coords are clamped to `[0, source_w−1] × [0, source_h−1]`. Used by Level 2 when the user double-clicks an anchor's `Probe (x,y)` cell (see [§5.8 Anchor table](anchor-table.md)) and when the user presses ++r++ to re-sample at the current frame (see [§5.7 Intensity plot](intensity-plot.md)).
+3. **Property `current_dot_xy → tuple[int, int] | None`**: read the active dot's source coords (or `None` if no dot is set). Level 2 reads this when an anchor is being added so the dot's coords get saved on the new anchor.
 
-The dot persists through scrubbing, zooming, and panning until the clip is swapped, the user calls `clear_dot()` (wired to **Back**), or a new right-click elsewhere replaces it.
+Visual: a 5-radius red circle (`rgba(255, 60, 60, 220)`) with a 1 px white outline is drawn on top of the frame. Level 2 forwards every `dot_dropped` to the `IntensityWorker` on its own `QThread` to sample ±120 frames of luma. Dropping a new dot replaces the old one.
+
+The dot persists through scrubbing, zooming, and panning until the clip is swapped, the user calls `clear_dot()` (wired to **Back**), or a new drop replaces it.
 
 ## Out-of-range display
 

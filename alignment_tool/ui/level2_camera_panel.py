@@ -122,6 +122,27 @@ class CameraPanelWidget(QWidget):
         """Public hook so external callers can drop the current probe dot."""
         self._clear_dot(emit=True)
 
+    def drop_dot(self, src_x: int, src_y: int) -> None:
+        """Drop a probe dot at the given source-pixel coords on the current frame.
+
+        Mirrors the right-click pathway: clamps to the source image bounds, sets
+        the dot, emits ``dot_dropped`` so the intensity worker re-samples around
+        the current frame. No-op until a frame has been decoded (we need
+        _source_w/_source_h to clamp meaningfully).
+        """
+        if self._camera_info is None or self._source_w <= 0 or self._source_h <= 0:
+            return
+        if self._source_image is None:
+            return
+        clamped_x = max(0, min(int(src_x), self._source_w - 1))
+        clamped_y = max(0, min(int(src_y), self._source_h - 1))
+        self._drop_dot(clamped_x, clamped_y)
+
+    @property
+    def current_dot_xy(self) -> tuple[int, int] | None:
+        """Source-pixel coords of the active probe dot, or None."""
+        return self._dot_source_xy
+
     def show_out_of_range(self, message: str):
         """Show a gray panel with an out-of-range message."""
         self._frame_label.clear()
@@ -380,11 +401,15 @@ class CameraPanelWidget(QWidget):
             event.accept()
             return
         src_x, src_y = result
+        self._drop_dot(src_x, src_y)
+        event.accept()
+
+    def _drop_dot(self, src_x: int, src_y: int) -> None:
+        """Place the probe dot and notify listeners. Caller has clamped to bounds."""
         self._dot_source_xy = (src_x, src_y)
         self._dot_center_frame = self._current_frame
         self.dot_dropped.emit(src_x, src_y, self._current_frame)
         self._render_frame()
-        event.accept()
 
     def _on_worker_open_failed(self, msg: str) -> None:
         self._frame_label.setStyleSheet("background: #7a1f1f; color: white;")

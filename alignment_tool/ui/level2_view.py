@@ -173,6 +173,7 @@ class Level2View(QWidget):
         self._anchor_table.anchor_label_changed.connect(self._on_anchor_label_changed)
         self._anchor_table.midi_time_jump_requested.connect(self._on_anchor_midi_jump)
         self._anchor_table.camera_frame_jump_requested.connect(self._on_anchor_camera_jump)
+        self._anchor_table.probe_jump_requested.connect(self._on_anchor_probe_jump)
         self._anchor_table.setMaximumHeight(200)
         layout.addWidget(self._anchor_table)
 
@@ -577,8 +578,13 @@ class Level2View(QWidget):
         label, ok = QInputDialog.getText(self, "Anchor Label", "Optional label for this anchor:")
         if not ok:
             return
+        probe_xy = self._camera_panel.current_dot_xy
+        probe_x = probe_xy[0] if probe_xy is not None else None
+        probe_y = probe_xy[1] if probe_xy is not None else None
         try:
-            anchor = self._controller.build_anchor_from_markers(label=label)
+            anchor = self._controller.build_anchor_from_markers(
+                label=label, probe_x=probe_x, probe_y=probe_y,
+            )
         except MarkersNotSetError as exc:
             QMessageBox.warning(self, "Markers not set", str(exc))
             return
@@ -649,6 +655,18 @@ class Level2View(QWidget):
         self._set_active_panel("camera")
         self._camera_panel.show_normal()
         self._camera_panel.set_frame(frame)
+
+    def _on_anchor_probe_jump(self, src_x: int, src_y: int):
+        """Double-click on an anchor row's Probe (x,y) cell.
+
+        Re-drops the probe dot at the stored pixel coords on whatever frame
+        the camera panel is currently showing. The downstream pipeline
+        (camera_panel.dot_dropped → _on_camera_dot_dropped) re-samples the
+        intensity window around the current frame.
+        """
+        self._set_active_panel("camera")
+        self._camera_panel.show_normal()
+        self._camera_panel.drop_dot(src_x, src_y)
 
     # --- Overlap navigation bar ---
 
@@ -730,6 +748,7 @@ class Level2View(QWidget):
         shortcut(Qt.Key_C, self._mark_camera)
         shortcut(Qt.Key_L, lambda: self._mode_btn.click())
         shortcut(Qt.Key_A, self._shortcut_add_anchor)
+        shortcut(Qt.Key_R, self._resample_intensity_here)
         shortcut(Qt.Key_Left, lambda: self._step_active(-1, False))
         shortcut(Qt.Key_Right, lambda: self._step_active(1, False))
         shortcut(Qt.SHIFT + Qt.Key_Left, lambda: self._step_active(-1, True))
@@ -743,6 +762,17 @@ class Level2View(QWidget):
             return
         if self._controller.midi_marker is not None and self._controller.camera_marker is not None:
             self._on_add_anchor()
+
+    def _resample_intensity_here(self):
+        """Re-sample the intensity window centered on the current camera frame.
+
+        Reuses the existing dot at its source coords and re-drops it so the
+        sample center moves to the current frame. Silent no-op if no dot is set.
+        """
+        dot = self._camera_panel.current_dot_xy
+        if dot is None:
+            return
+        self._camera_panel.drop_dot(dot[0], dot[1])
 
     def _step_active(self, direction: int, large: bool):
         if self._active_panel == "midi":
@@ -783,7 +813,8 @@ class Level2View(QWidget):
         self._status_line.setText(
             f"{mode} Mode  |  Active: {active} (Tab to switch)  |  "
             f"Arrows: navigate  |  L: toggle mode  |  "
-            f"M: mark MIDI  |  C: mark camera  |  A: add anchor  |  O: jump to overlap"
+            f"M: mark MIDI  |  C: mark camera  |  A: add anchor  |  "
+            f"R: re-sample intensity  |  O: jump to overlap"
         )
 
     def _flash_label(self, label: QLabel):

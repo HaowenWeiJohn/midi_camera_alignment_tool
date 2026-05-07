@@ -11,12 +11,16 @@ def make_anchor(
     midi_timestamp_seconds: float = 1.0,
     camera_frame: int = 240,
     label: str = "",
+    probe_x: int | None = None,
+    probe_y: int | None = None,
 ) -> Anchor:
     return Anchor(
         midi_filename=midi_filename,
         midi_timestamp_seconds=midi_timestamp_seconds,
         camera_frame=camera_frame,
         label=label,
+        probe_x=probe_x,
+        probe_y=probe_y,
     )
 
 

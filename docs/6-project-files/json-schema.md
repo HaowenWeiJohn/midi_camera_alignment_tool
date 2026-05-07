@@ -39,7 +39,9 @@ The alignment save file is a single UTF-8 JSON document with `indent=2`, strict 
           "midi_filename": "trial_001.mid",
           "midi_timestamp_seconds": 12.456,
           "camera_frame": 2987,
-          "label": "phrase 1 opening"
+          "label": "phrase 1 opening",
+          "probe_x": 812,
+          "probe_y": 430
         }
       ]
     }
@@ -98,6 +100,8 @@ The alignment save file is a single UTF-8 JSON document with `indent=2`, strict 
 | `midi_timestamp_seconds` | float | Must be finite. Seconds from the start of the referenced MIDI file. |
 | `camera_frame` | int | Must be `>= 0`. 0-indexed cv2 frame. |
 | `label` | string | Optional (defaults to `""` on load if missing). Free text. |
+| `probe_x` | int or null | Optional (defaults to `null` on load if missing). Source-pixel x of the intensity probe dot active when the anchor was added. Advisory metadata only — not consulted by the alignment math. |
+| `probe_y` | int or null | Optional (defaults to `null` on load if missing). Source-pixel y, same semantics as `probe_x`. Both must be set together to render in the anchor table; otherwise the cell shows `—`. |
 
 ## Validation rules
 

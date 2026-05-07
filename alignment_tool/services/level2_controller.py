@@ -98,7 +98,12 @@ class Level2Controller:
         camera_unix = engine.camera_frame_to_unix(self._camera_marker, cam)  # type: ignore[arg-type]
         return engine.compute_global_shift_from_markers(midi_unix, camera_unix)
 
-    def build_anchor_from_markers(self, label: str = "") -> Anchor:
+    def build_anchor_from_markers(
+        self,
+        label: str = "",
+        probe_x: int | None = None,
+        probe_y: int | None = None,
+    ) -> Anchor:
         self._require_markers()
         midi = self._state.midi_files[self._midi_index]
         return Anchor(
@@ -106,6 +111,8 @@ class Level2Controller:
             midi_timestamp_seconds=self._midi_marker,       # type: ignore[arg-type]
             camera_frame=self._camera_marker,               # type: ignore[arg-type]
             label=label,
+            probe_x=probe_x,
+            probe_y=probe_y,
         )
 
     def _require_markers(self) -> None:

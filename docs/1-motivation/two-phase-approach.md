@@ -34,6 +34,8 @@ An anchor is a pair of points:
 - `midi_filename` + `midi_timestamp_seconds` — the MIDI keystroke, in seconds from the start of that MIDI file.
 - `camera_frame` — the 0-indexed frame where the same physical keystroke occurs.
 
+It also carries advisory metadata that the alignment math ignores but the UI uses for navigation: a free-text `label`, and `probe_x` / `probe_y` — the source-pixel coordinates of the intensity probe dot (if any) that was active when the anchor was added. The probe coords let you re-drop the same dot from the anchor table later (see [§5.8 Anchor table](../5-reference/anchor-table.md)) and survive save/load; they are never consulted by `compute_anchor_shift`.
+
 Each camera clip can hold many anchors; exactly one of them may be **active** at a time (`CameraFileInfo.active_anchor_index` in `core/models.py:14-31`). Only the active anchor contributes to that clip's alignment.
 
 ## The math

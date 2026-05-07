@@ -15,12 +15,12 @@ The drift is almost always within one or two seconds on clips recorded back-to-b
 
 1. In Level 2, with the clip showing drift, find a clean keystroke that is clearly visible both in the piano roll and on camera.
 2. Press ++m++ on the MIDI panel to set the MIDI marker at the selected time.
-3. Press ++c++ on the camera panel to set the camera marker at the exact onset frame (the intensity probe helps here — see [§4.3](using-intensity-probe.md)).
+3. Press ++c++ on the camera panel to set the camera marker at the exact onset frame (the intensity probe helps here — see [§4.3](using-intensity-probe.md)). If you used the probe, leave the red dot on the key — its pixel coordinates will be saved with the anchor in the next step.
 4. Click **Add Anchor (A)** in the anchor-table header (or press ++a++).
 5. An input dialog asks for an **optional label** — type something descriptive like `"phrase 2 opening"` or leave it blank.
-6. The new anchor appears as the last row in the table. Its **Derived Shift (s)** column shows the `anchor_shift` the tool computed for it.
+6. The new anchor appears as the last row in the table. Its **Derived Shift (s)** column shows the `anchor_shift` the tool computed for it; its **Probe (x, y)** column shows the dot's pixel (or `—` if no dot was active when you pressed A).
 
-The markers clear after the anchor is created, ready for the next one.
+The markers clear after the anchor is created, ready for the next one. The probe dot is **not** cleared — it stays on the camera until you swap clips, drop a new dot, or click **Back**.
 
 !!! tip "Revising a label later"
     You don't have to commit to the label from the popup. **Double-click** the **Label** cell (or select the row and press ++f2++) to edit it in place; ++enter++ commits, ++esc++ cancels. The edit marks the session dirty, same as any other anchor change.
@@ -42,8 +42,9 @@ Only anchors whose **`midi_filename`** matches the MIDI currently selected in th
 
 - **Double-click** the **MIDI Time (s)** cell → the MIDI panel jumps to that time.
 - **Double-click** the **Camera Frame** cell → the camera panel jumps to that frame.
+- **Double-click** the **Probe (x, y)** cell → the camera panel re-drops the probe dot at those source-pixel coords on whatever frame is currently visible, and the intensity plot re-samples ±120 frames around the current frame. No-op if the cell shows `—`.
 
-Both jumps respect the greyed-out rule: they only fire for anchors whose MIDI matches the current selection.
+All three jumps respect the greyed-out rule: they only fire for anchors whose MIDI matches the current selection.
 
 ## Deleting an anchor
 

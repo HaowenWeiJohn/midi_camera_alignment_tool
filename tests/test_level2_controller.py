@@ -109,6 +109,18 @@ def test_build_anchor_from_markers_returns_anchor_for_current_pair():
     assert anchor.midi_timestamp_seconds == 5.5
     assert anchor.camera_frame == 1320
     assert anchor.label == "A"
+    # Probe coords default to None when not supplied.
+    assert anchor.probe_x is None
+    assert anchor.probe_y is None
+
+
+def test_build_anchor_from_markers_carries_probe_coords():
+    _, _, ctrl = _setup()
+    ctrl.mark_midi(5.5)
+    ctrl.mark_camera(1320)
+    anchor = ctrl.build_anchor_from_markers(probe_x=100, probe_y=200)
+    assert anchor.probe_x == 100
+    assert anchor.probe_y == 200
 
 
 def test_build_anchor_from_markers_without_markers_raises():

@@ -39,6 +39,10 @@ Always `±120` frames around the drop frame, clipped to the valid clip range. Ou
 
 Values are **Rec.601 luma** (`0.299 R + 0.587 G + 0.114 B`) averaged over a **3 × 3** patch around the dropped pixel (edge-clamped if the dot is near the frame border).
 
+## Re-centering on the current frame (++r++)
+
+After scrubbing far from the original drop frame, the plot can fall entirely outside `±120` of the playhead, leaving the red playhead line invisible. Press ++r++ to re-sample the same pixel with the **current camera frame** as the new center. Internally this calls `CameraPanelWidget.drop_dot(*current_dot_xy)`, which re-fires the existing `dot_dropped` pipeline; the plot repaints with new bounds and a new dotted-grey center marker. ++r++ is a silent no-op when no probe dot is active.
+
 ## Axes and ticks
 
 - **Y axis**: three labels — min, midpoint, and max of the observed luma, with 10 % padding on each side. For totally flat traces, the range is padded symmetrically so the line lands mid-plot.
@@ -65,3 +69,7 @@ The underlying `IntensityWorker` processes requests serially — once a `request
 2. New dot on the same clip mid-sample — the tuple advanced to the new dot, so the old sample is dropped.
 
 The plot therefore always reflects the latest dropped dot or the most recent placeholder message, never a stale trace.
+
+## Persistence
+
+The probe dot's source-pixel coordinates are **saved on each anchor** at `Add Anchor` time as `probe_x` / `probe_y` (see [§5.8 Anchor table](anchor-table.md) and [§6.1 JSON schema](../6-project-files/json-schema.md)). The sampled luma values themselves are not persisted — only the coordinates. To re-render the trace later, double-click the **Probe (x, y)** cell in the anchor table; that re-drops the dot at the same pixel on whatever frame the camera is currently showing and a fresh ±120-frame sample runs.

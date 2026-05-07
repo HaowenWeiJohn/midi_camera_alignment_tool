@@ -143,6 +143,8 @@ def _anchor_to_dict(a: Anchor) -> dict:
         "midi_timestamp_seconds": a.midi_timestamp_seconds,
         "camera_frame": a.camera_frame,
         "label": a.label,
+        "probe_x": a.probe_x,
+        "probe_y": a.probe_y,
     }
 
 
@@ -193,6 +195,8 @@ def _dict_to_anchor(d: dict) -> Anchor:
         midi_timestamp_seconds=d["midi_timestamp_seconds"],
         camera_frame=d["camera_frame"],
         label=d.get("label", ""),
+        probe_x=d.get("probe_x"),
+        probe_y=d.get("probe_y"),
     )
 
 

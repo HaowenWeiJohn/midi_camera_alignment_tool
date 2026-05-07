@@ -21,6 +21,7 @@ Active when Level 2 is the current page. Shortcuts are registered with `Qt.Widge
 | ++c++ | Mark Camera at the current frame |
 | ++l++ | Toggle **Independent** ↔ **Locked** mode |
 | ++a++ | Add anchor from current markers (no-op if either marker is unset) |
+| ++r++ | Re-sample the intensity probe centered on the current camera frame (no-op if no probe dot is dropped) |
 | ++left++ | Step active panel backward: MIDI by 1 tick, camera by 1 frame |
 | ++right++ | Step active panel forward: MIDI by 1 tick, camera by 1 frame |
 | ++shift+left++ | Coarse backward step: MIDI 100 ticks, camera 10 frames |
@@ -42,7 +43,7 @@ Mouse interactions are covered on each widget's reference page:
 
 ## What about typing into controls?
 
-Menu shortcuts (++ctrl+o++ etc.) work regardless of focus. Level 2 letter shortcuts (++m++, ++c++, ++l++, ++a++, ++o++) likewise fire regardless of focus — with two exceptions:
+Menu shortcuts (++ctrl+o++ etc.) work regardless of focus. Level 2 letter shortcuts (++m++, ++c++, ++l++, ++a++, ++r++, ++o++) likewise fire regardless of focus — with two exceptions:
 
 - The "Anchor Label" input dialog shown when adding an anchor is modal and blocks shortcut routing until you confirm or cancel.
 - The anchor table's **Label** cell opens an inline editor when you double-click it (or press ++f2++ on a selected row). While that editor is focused, letter keys are absorbed by the editor. Press ++enter++ or ++esc++ (or click outside) to release focus and re-enable the shortcuts.
