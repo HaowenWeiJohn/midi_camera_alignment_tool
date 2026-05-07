@@ -1861,6 +1861,10 @@
 <td>Add anchor from current markers (no-op if either marker is unset)</td>
 </tr>
 <tr>
+<td><span class="keys"><kbd class="key-r">R</kbd></span></td>
+<td>Re-sample the intensity probe centered on the current camera frame (no-op if no probe dot is dropped)</td>
+</tr>
+<tr>
 <td><span class="keys"><kbd class="key-arrow-left">Left</kbd></span></td>
 <td>Step active panel backward: MIDI by 1 tick, camera by 1 frame</td>
 </tr>
@@ -1901,7 +1905,7 @@
 <li><a href="../anchor-table/">Anchor table</a> — click Active cell to toggle, double-click MIDI Time / Camera Frame to jump.</li>
 </ul>
 <h2 id="what-about-typing-into-controls">What about typing into controls?<a class="headerlink" href="#what-about-typing-into-controls" title="Permanent link">&para;</a></h2>
-<p>Menu shortcuts (<span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-o">O</kbd></span> etc.) work regardless of focus. Level 2 letter shortcuts (<span class="keys"><kbd class="key-m">M</kbd></span>, <span class="keys"><kbd class="key-c">C</kbd></span>, <span class="keys"><kbd class="key-l">L</kbd></span>, <span class="keys"><kbd class="key-a">A</kbd></span>, <span class="keys"><kbd class="key-o">O</kbd></span>) likewise fire regardless of focus — with two exceptions:</p>
+<p>Menu shortcuts (<span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-o">O</kbd></span> etc.) work regardless of focus. Level 2 letter shortcuts (<span class="keys"><kbd class="key-m">M</kbd></span>, <span class="keys"><kbd class="key-c">C</kbd></span>, <span class="keys"><kbd class="key-l">L</kbd></span>, <span class="keys"><kbd class="key-a">A</kbd></span>, <span class="keys"><kbd class="key-r">R</kbd></span>, <span class="keys"><kbd class="key-o">O</kbd></span>) likewise fire regardless of focus — with two exceptions:</p>
 <ul>
 <li>The "Anchor Label" input dialog shown when adding an anchor is modal and blocks shortcut routing until you confirm or cancel.</li>
 <li>The anchor table's <strong>Label</strong> cell opens an inline editor when you double-click it (or press <span class="keys"><kbd class="key-f2">F2</kbd></span> on a selected row). While that editor is focused, letter keys are absorbed by the editor. Press <span class="keys"><kbd class="key-enter">Enter</kbd></span> or <span class="keys"><kbd class="key-escape">Esc</kbd></span> (or click outside) to release focus and re-enable the shortcuts.</li>

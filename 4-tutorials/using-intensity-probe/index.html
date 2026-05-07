@@ -1075,6 +1075,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-the-probe-doesnt-do" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1808,6 +1819,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-the-probe-doesnt-do" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1877,7 +1899,10 @@
 <ul>
 <li>Dropping the dot on a different pixel immediately cancels the old sample and starts a new one. The old plot is replaced as soon as the new one finishes.</li>
 <li>Switching to a different camera clip or clicking <strong>Back</strong> clears the dot and the plot automatically — late results from the old clip are discarded so a stale trace cannot overwrite the new one.</li>
+<li>Press <span class="keys"><kbd class="key-r">R</kbd></span> to <strong>re-center the sample window on the current camera frame</strong> without moving the dot. Useful when you've scrubbed far away and the playhead has fallen outside the original ±120-frame window. The dot's pixel stays where it is; only the sample's center frame changes.</li>
 </ul>
+<h2 id="persistence">Persistence<a class="headerlink" href="#persistence" title="Permanent link">&para;</a></h2>
+<p>When you press <span class="keys"><kbd class="key-a">A</kbd></span> to add an anchor, the <strong>currently-active dot's source pixel</strong> is captured into the anchor as <code>probe_x</code> / <code>probe_y</code>. The values appear in the new anchor row's <strong>Probe (x, y)</strong> column and round-trip through save/load. The luma values themselves are not saved — only the coordinates — so re-rendering the trace later requires sampling again. Double-click the <strong>Probe (x, y)</strong> cell on any saved anchor to re-drop the dot at those coords on the current frame and run a fresh sample. If you press <span class="keys"><kbd class="key-a">A</kbd></span> with no dot active, the column shows <code>—</code> and the anchor stores <code>null</code>.</p>
 <h2 id="what-the-probe-doesnt-do">What the probe doesn't do<a class="headerlink" href="#what-the-probe-doesnt-do" title="Permanent link">&para;</a></h2>
 <ul>
 <li>No motion detection — the probe just reports one pixel's luma. Choose a point that actually changes brightness when the key is pressed; the edge between a key top and its shadow works well.</li>

@@ -1833,6 +1833,7 @@
 <li><code>midi_filename</code> + <code>midi_timestamp_seconds</code> — the MIDI keystroke, in seconds from the start of that MIDI file.</li>
 <li><code>camera_frame</code> — the 0-indexed frame where the same physical keystroke occurs.</li>
 </ul>
+<p>It also carries advisory metadata that the alignment math ignores but the UI uses for navigation: a free-text <code>label</code>, and <code>probe_x</code> / <code>probe_y</code> — the source-pixel coordinates of the intensity probe dot (if any) that was active when the anchor was added. The probe coords let you re-drop the same dot from the anchor table later (see <a href="../../5-reference/anchor-table/">§5.8 Anchor table</a>) and survive save/load; they are never consulted by <code>compute_anchor_shift</code>.</p>
 <p>Each camera clip can hold many anchors; exactly one of them may be <strong>active</strong> at a time (<code>CameraFileInfo.active_anchor_index</code> in <code>core/models.py:14-31</code>). Only the active anchor contributes to that clip's alignment.</p>
 <h2 id="the-math">The math<a class="headerlink" href="#the-math" title="Permanent link">&para;</a></h2>
 <p>The tool composes both phases into a single <code>effective_shift</code> per camera clip. The formulas are in <code>alignment_tool/core/engine.py:16-52</code>; stated plainly:</p>

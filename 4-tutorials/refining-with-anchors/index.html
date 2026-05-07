@@ -1884,12 +1884,12 @@
 <ol>
 <li>In Level 2, with the clip showing drift, find a clean keystroke that is clearly visible both in the piano roll and on camera.</li>
 <li>Press <span class="keys"><kbd class="key-m">M</kbd></span> on the MIDI panel to set the MIDI marker at the selected time.</li>
-<li>Press <span class="keys"><kbd class="key-c">C</kbd></span> on the camera panel to set the camera marker at the exact onset frame (the intensity probe helps here — see <a href="../using-intensity-probe/">§4.3</a>).</li>
+<li>Press <span class="keys"><kbd class="key-c">C</kbd></span> on the camera panel to set the camera marker at the exact onset frame (the intensity probe helps here — see <a href="../using-intensity-probe/">§4.3</a>). If you used the probe, leave the red dot on the key — its pixel coordinates will be saved with the anchor in the next step.</li>
 <li>Click <strong>Add Anchor (A)</strong> in the anchor-table header (or press <span class="keys"><kbd class="key-a">A</kbd></span>).</li>
 <li>An input dialog asks for an <strong>optional label</strong> — type something descriptive like <code>"phrase 2 opening"</code> or leave it blank.</li>
-<li>The new anchor appears as the last row in the table. Its <strong>Derived Shift (s)</strong> column shows the <code>anchor_shift</code> the tool computed for it.</li>
+<li>The new anchor appears as the last row in the table. Its <strong>Derived Shift (s)</strong> column shows the <code>anchor_shift</code> the tool computed for it; its <strong>Probe (x, y)</strong> column shows the dot's pixel (or <code>—</code> if no dot was active when you pressed A).</li>
 </ol>
-<p>The markers clear after the anchor is created, ready for the next one.</p>
+<p>The markers clear after the anchor is created, ready for the next one. The probe dot is <strong>not</strong> cleared — it stays on the camera until you swap clips, drop a new dot, or click <strong>Back</strong>.</p>
 <div class="admonition tip">
 <p class="admonition-title">Revising a label later</p>
 <p>You don't have to commit to the label from the popup. <strong>Double-click</strong> the <strong>Label</strong> cell (or select the row and press <span class="keys"><kbd class="key-f2">F2</kbd></span>) to edit it in place; <span class="keys"><kbd class="key-enter">Enter</kbd></span> commits, <span class="keys"><kbd class="key-escape">Esc</kbd></span> cancels. The edit marks the session dirty, same as any other anchor change.</p>
@@ -1907,8 +1907,9 @@
 <ul>
 <li><strong>Double-click</strong> the <strong>MIDI Time (s)</strong> cell → the MIDI panel jumps to that time.</li>
 <li><strong>Double-click</strong> the <strong>Camera Frame</strong> cell → the camera panel jumps to that frame.</li>
+<li><strong>Double-click</strong> the <strong>Probe (x, y)</strong> cell → the camera panel re-drops the probe dot at those source-pixel coords on whatever frame is currently visible, and the intensity plot re-samples ±120 frames around the current frame. No-op if the cell shows <code>—</code>.</li>
 </ul>
-<p>Both jumps respect the greyed-out rule: they only fire for anchors whose MIDI matches the current selection.</p>
+<p>All three jumps respect the greyed-out rule: they only fire for anchors whose MIDI matches the current selection.</p>
 <h2 id="deleting-an-anchor">Deleting an anchor<a class="headerlink" href="#deleting-an-anchor" title="Permanent link">&para;</a></h2>
 <p>Select a row and click <strong>Delete Selected</strong>. The anchor is removed immediately; no confirmation dialog. If the deleted anchor was the active one, the clip's <code>effective_shift</code> drops back to just the global shift and the view re-syncs if in Locked mode.</p>
 <h2 id="what-happens-if-you-re-run-compute-global-shift">What happens if you re-run Compute Global Shift<a class="headerlink" href="#what-happens-if-you-re-run-compute-global-shift" title="Permanent link">&para;</a></h2>

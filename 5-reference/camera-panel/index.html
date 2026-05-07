@@ -1285,10 +1285,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#intensity-probe-right-click" class="md-nav__link">
+  <a href="#intensity-probe" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Intensity probe (right-click)
+        Intensity probe
       
     </span>
   </a>
@@ -1852,10 +1852,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#intensity-probe-right-click" class="md-nav__link">
+  <a href="#intensity-probe" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Intensity probe (right-click)
+        Intensity probe
       
     </span>
   </a>
@@ -1989,15 +1989,15 @@
 <li>Pan is clamped so you can never drag the image past its own edge.</li>
 <li>Pan is reset on double-click and on clip swap.</li>
 </ul>
-<h2 id="intensity-probe-right-click">Intensity probe (right-click)<a class="headerlink" href="#intensity-probe-right-click" title="Permanent link">&para;</a></h2>
-<p>Right-click (<code>contextMenuEvent</code>) drops a <strong>single intensity probe dot</strong> at the clicked source pixel:</p>
-<ul>
-<li>A 5-radius red circle (<code>rgba(255, 60, 60, 220)</code>) with a 1 px white outline is drawn on top of the frame.</li>
-<li><code>dot_dropped(src_x, src_y, current_frame)</code> is emitted; Level 2 forwards this to the <code>IntensityWorker</code> on its own <code>QThread</code> to sample ±120 frames of luma (see <a href="../intensity-plot/">§5.7 Intensity plot</a>).</li>
-<li>Dropping the dot outside the image (e.g. in the letterbox) is silently ignored.</li>
-<li>Dropping a new dot replaces the old one.</li>
-</ul>
-<p>The dot persists through scrubbing, zooming, and panning until the clip is swapped, the user calls <code>clear_dot()</code> (wired to <strong>Back</strong>), or a new right-click elsewhere replaces it.</p>
+<h2 id="intensity-probe">Intensity probe<a class="headerlink" href="#intensity-probe" title="Permanent link">&para;</a></h2>
+<p>Three ways to drop a <strong>single intensity probe dot</strong> at a source pixel — they all flow through the same <code>_drop_dot</code> helper that emits <code>dot_dropped(src_x, src_y, current_frame)</code>:</p>
+<ol>
+<li><strong>Right-click</strong> (<code>contextMenuEvent</code>): drops the dot at the clicked source pixel. Clicks outside the image (e.g. in the letterbox) are silently ignored.</li>
+<li><strong>Public method <code>drop_dot(src_x, src_y)</code></strong>: programmatic drop at the given source coords on the current frame. Caller-supplied coords are clamped to <code>[0, source_w−1] × [0, source_h−1]</code>. Used by Level 2 when the user double-clicks an anchor's <code>Probe (x,y)</code> cell (see <a href="../anchor-table/">§5.8 Anchor table</a>) and when the user presses <span class="keys"><kbd class="key-r">R</kbd></span> to re-sample at the current frame (see <a href="../intensity-plot/">§5.7 Intensity plot</a>).</li>
+<li><strong>Property <code>current_dot_xy → tuple[int, int] | None</code></strong>: read the active dot's source coords (or <code>None</code> if no dot is set). Level 2 reads this when an anchor is being added so the dot's coords get saved on the new anchor.</li>
+</ol>
+<p>Visual: a 5-radius red circle (<code>rgba(255, 60, 60, 220)</code>) with a 1 px white outline is drawn on top of the frame. Level 2 forwards every <code>dot_dropped</code> to the <code>IntensityWorker</code> on its own <code>QThread</code> to sample ±120 frames of luma. Dropping a new dot replaces the old one.</p>
+<p>The dot persists through scrubbing, zooming, and panning until the clip is swapped, the user calls <code>clear_dot()</code> (wired to <strong>Back</strong>), or a new drop replaces it.</p>
 <h2 id="out-of-range-display">Out-of-range display<a class="headerlink" href="#out-of-range-display" title="Permanent link">&para;</a></h2>
 <p>In Locked mode, when the MIDI drives the camera and the target frame falls outside the clip, the frame area switches to a neutral grey background (<code>#555</code>) with centered white text: <code>"Camera clip starts in X.XX s"</code> or <code>"Camera clip ended X.XX s ago"</code>. Navigating the camera directly (e.g. wheel, click-drag pan, <span class="keys"><kbd class="key-arrow-left">Left</kbd></span>/<span class="keys"><kbd class="key-arrow-right">Right</kbd></span>) restores the normal display.</p>
 <h2 id="keyboard-stepping-driven-from-level-2">Keyboard stepping (driven from Level 2)<a class="headerlink" href="#keyboard-stepping-driven-from-level-2" title="Permanent link">&para;</a></h2>

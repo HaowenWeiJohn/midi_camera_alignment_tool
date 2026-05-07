@@ -1391,6 +1391,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#when-probe-coords-get-captured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When probe coords get captured
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-the-table-doesnt-do" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1863,6 +1874,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#when-probe-coords-get-captured" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When probe coords get captured
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-the-table-doesnt-do" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1896,15 +1918,15 @@
 <h1 id="anchor-table">Anchor table<a class="headerlink" href="#anchor-table" title="Permanent link">&para;</a></h1>
 <p>The anchor table is the per-camera-clip list of alignment anchors — the raw data behind Phase 2 of the <a href="../../1-motivation/two-phase-approach/">two-phase approach</a>. It lives at the bottom of Level 2 with a fixed maximum height of 200 px.</p>
 <h2 id="layout">Layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>┌────────────────────────────────────────────────────────────────────┐
-│ [Alignment Anchors] [ Add Anchor (A) ]          [Delete Selected]  │ ← header row
-├───┬──────────────┬─────────────┬──────────────┬───────────────┬────┤
-│ # │ MIDI File    │ MIDI Time(s)│ Camera Frame │ Derived Shift │ L  │*│
-├───┼──────────────┼─────────────┼──────────────┼───────────────┼────┤
-│ 1 │ trial_001.mid│ 12.456      │ 2987         │ 0.0123        │    │*│ ← active
-│ 2 │ trial_001.mid│ 47.802      │ 11487        │ 0.0125        │    │ │
-│ 3 │ trial_002.mid│ 4.105       │ 984          │ 0.0112        │    │ │ ← greyed out
-└───┴──────────────┴─────────────┴──────────────┴───────────────┴────┘
+<div class="highlight"><pre><span></span><code>┌──────────────────────────────────────────────────────────────────────────────┐
+│ [Alignment Anchors] [ Add Anchor (A) ]                    [Delete Selected]  │ ← header row
+├───┬──────────────┬─────────────┬──────────────┬────────────┬───────────────┬────┤
+│ # │ MIDI File    │ MIDI Time(s)│ Camera Frame │ Probe(x,y) │ Derived Shift │ L  │*│
+├───┼──────────────┼─────────────┼──────────────┼────────────┼───────────────┼────┤
+│ 1 │ trial_001.mid│ 12.456      │ 2987         │ (812, 430) │ 0.0123        │    │*│ ← active
+│ 2 │ trial_001.mid│ 47.802      │ 11487        │ —          │ 0.0125        │    │ │
+│ 3 │ trial_002.mid│ 4.105       │ 984          │ (210, 380) │ 0.0112        │    │ │ ← greyed out
+└───┴──────────────┴─────────────┴──────────────┴────────────┴───────────────┴────┘
 </code></pre></div>
 <h2 id="columns">Columns<a class="headerlink" href="#columns" title="Permanent link">&para;</a></h2>
 <table>
@@ -1938,16 +1960,21 @@
 </tr>
 <tr>
 <td>4</td>
+<td><code>Probe (x,y)</code></td>
+<td><code>(anchor.probe_x, anchor.probe_y)</code> — source-pixel coords of the intensity probe dot that was active when the anchor was added. Renders <code>—</code> if the anchor was created with no dot active.</td>
+</tr>
+<tr>
+<td>5</td>
 <td><code>Derived Shift (s)</code></td>
 <td><code>compute_anchor_shift</code> output, 4 decimals. <code>N/A</code> if the anchor's MIDI file isn't in the current session.</td>
 </tr>
 <tr>
-<td>5</td>
+<td>6</td>
 <td><code>Label</code></td>
 <td><code>anchor.label</code> (free text, optional). <strong>Editable in place</strong> — double-click the cell (or press <span class="keys"><kbd class="key-f2">F2</kbd></span> on a selected row) to open the editor; <span class="keys"><kbd class="key-enter">Enter</kbd></span> commits, <span class="keys"><kbd class="key-escape">Esc</kbd></span> cancels.</td>
 </tr>
 <tr>
-<td>6</td>
+<td>7</td>
 <td><code>Active</code></td>
 <td><code>*</code> if this row's anchor is the active one; blank otherwise. Centered; dark green background + white text when active.</td>
 </tr>
@@ -1963,7 +1990,7 @@
 <p>Anchors whose <strong><code>midi_filename</code> doesn't match the currently-selected MIDI combo</strong> are rendered greyed out (grey foreground text) and made non-selectable. They still show every column for reference, but:</p>
 <ul>
 <li>Clicking the <code>Active</code> cell is ignored.</li>
-<li>Double-clicking the <code>MIDI Time</code> / <code>Camera Frame</code> cells is ignored.</li>
+<li>Double-clicking the <code>MIDI Time</code> / <code>Camera Frame</code> / <code>Probe (x,y)</code> cells is ignored.</li>
 <li>The row cannot be selected, so <strong>Delete Selected</strong> cannot be invoked on them.</li>
 </ul>
 <p>This prevents confusion when the same camera clip is viewed against a different MIDI file — only anchors tied to the shown MIDI are actionable.</p>
@@ -1977,7 +2004,7 @@
 </thead>
 <tbody>
 <tr>
-<td><strong>Single-click</strong> on the <code>Active</code> cell (col 6)</td>
+<td><strong>Single-click</strong> on the <code>Active</code> cell (col 7)</td>
 <td>Toggle active. If this row is already active → deactivate (<code>set_active_anchor(None)</code>, emit <code>anchor_deactivated</code>). Otherwise → activate (<code>set_active_anchor(row)</code>, emit <code>anchor_activated(row)</code>). Ignored for greyed rows.</td>
 </tr>
 <tr>
@@ -1989,7 +2016,11 @@
 <td>Emit <code>camera_frame_jump_requested(frame)</code> → Level 2 jumps the camera panel to that frame and makes it the active panel. Ignored for greyed rows.</td>
 </tr>
 <tr>
-<td><strong>Double-click</strong> on <code>Label</code> (col 5)</td>
+<td><strong>Double-click</strong> on <code>Probe (x,y)</code> (col 4)</td>
+<td>Emit <code>probe_jump_requested(src_x, src_y)</code> → Level 2 calls <code>CameraPanelWidget.drop_dot</code> so a probe dot is placed at those source coords on the <strong>currently visible</strong> camera frame, and the intensity worker re-samples ±120 frames around the current frame. Ignored for greyed rows and no-op if the cell is <code>—</code>.</td>
+</tr>
+<tr>
+<td><strong>Double-click</strong> on <code>Label</code> (col 6)</td>
 <td>Opens an inline editor in the cell. <span class="keys"><kbd class="key-enter">Enter</kbd></span> commits the new label via <code>AlignmentService.set_anchor_label</code>, then emits <code>anchor_label_changed(row)</code>. <span class="keys"><kbd class="key-escape">Esc</kbd></span> cancels with no write. Ignored for greyed rows (the cell is non-editable).</td>
 </tr>
 <tr>
@@ -2039,12 +2070,25 @@
 <td><code>camera_frame_jump_requested(int)</code></td>
 <td>Double-click on col 3</td>
 </tr>
+<tr>
+<td><code>probe_jump_requested(int, int)</code></td>
+<td>Double-click on col 4 when both <code>probe_x</code> and <code>probe_y</code> are set</td>
+</tr>
 </tbody>
 </table>
-<p>Level 2 catches all six and re-syncs the panels, refreshes the overlap bar, and marks the session dirty as appropriate.</p>
+<p>Level 2 catches all seven and re-syncs the panels, refreshes the overlap bar, and marks the session dirty as appropriate.</p>
+<h2 id="when-probe-coords-get-captured">When probe coords get captured<a class="headerlink" href="#when-probe-coords-get-captured" title="Permanent link">&para;</a></h2>
+<p><code>probe_x</code> / <code>probe_y</code> are read from the camera panel <strong>at the moment Add Anchor is clicked / <span class="keys"><kbd class="key-a">A</kbd></span> is pressed</strong>, not when <span class="keys"><kbd class="key-m">M</kbd></span> or <span class="keys"><kbd class="key-c">C</kbd></span> are pressed. Practical consequences:</p>
+<ul>
+<li>Drop a dot, mark M/C, press A → the anchor stores that dot's coords.</li>
+<li>Drop a dot, mark M/C, drop a <em>different</em> dot, press A → the anchor stores the <strong>latest</strong> dot. The dot is not snapshot-bound to the markers.</li>
+<li>Mark M/C without dropping any dot → both fields are <code>None</code> and the cell shows <code>—</code>. The anchor is still fully valid.</li>
+<li>Drop a dot, then switch clips (which calls <code>clear_dot</code>), then add an anchor → both fields are <code>None</code>.</li>
+</ul>
+<p>The probe coords are advisory metadata: they let you re-drop the same dot later via double-click, but they are <strong>never</strong> consulted by the alignment math (<code>engine.compute_anchor_shift</code> only reads <code>midi_filename</code>, <code>midi_timestamp_seconds</code>, <code>camera_frame</code>).</p>
 <h2 id="what-the-table-doesnt-do">What the table doesn't do<a class="headerlink" href="#what-the-table-doesnt-do" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The anchor's MIDI time and camera frame are immutable once created — only the <strong>Label</strong> column supports in-place editing. To adjust a MIDI-time or camera-frame value, delete the anchor and add a new one.</li>
+<li>The anchor's MIDI time, camera frame, and probe coords are immutable once created — only the <strong>Label</strong> column supports in-place editing. To adjust any of those values, delete the anchor and add a new one.</li>
 <li>No multi-select or bulk delete.</li>
 <li>No import/export outside the main save/load. Anchors travel with the session JSON.</li>
 </ul>

@@ -1319,6 +1319,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#re-centering-on-the-current-frame-r" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-centering on the current frame (R)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#axes-and-ticks" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1356,6 +1367,17 @@
     <span class="md-ellipsis">
       
         Staleness filter
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistence
       
     </span>
   </a>
@@ -1808,6 +1830,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#re-centering-on-the-current-frame-r" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-centering on the current frame (R)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#axes-and-ticks" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1845,6 +1878,17 @@
     <span class="md-ellipsis">
       
         Staleness filter
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistence
       
     </span>
   </a>
@@ -1922,6 +1966,8 @@
 <h2 id="sample-window">Sample window<a class="headerlink" href="#sample-window" title="Permanent link">&para;</a></h2>
 <p>Always <code>±120</code> frames around the drop frame, clipped to the valid clip range. Out-of-range positions (before frame 0 or past <code>total_frames − 1</code>) appear as <strong>gaps</strong> in the polyline, not interpolated across.</p>
 <p>Values are <strong>Rec.601 luma</strong> (<code>0.299 R + 0.587 G + 0.114 B</code>) averaged over a <strong>3 × 3</strong> patch around the dropped pixel (edge-clamped if the dot is near the frame border).</p>
+<h2 id="re-centering-on-the-current-frame-r">Re-centering on the current frame (<span class="keys"><kbd class="key-r">R</kbd></span>)<a class="headerlink" href="#re-centering-on-the-current-frame-r" title="Permanent link">&para;</a></h2>
+<p>After scrubbing far from the original drop frame, the plot can fall entirely outside <code>±120</code> of the playhead, leaving the red playhead line invisible. Press <span class="keys"><kbd class="key-r">R</kbd></span> to re-sample the same pixel with the <strong>current camera frame</strong> as the new center. Internally this calls <code>CameraPanelWidget.drop_dot(*current_dot_xy)</code>, which re-fires the existing <code>dot_dropped</code> pipeline; the plot repaints with new bounds and a new dotted-grey center marker. <span class="keys"><kbd class="key-r">R</kbd></span> is a silent no-op when no probe dot is active.</p>
 <h2 id="axes-and-ticks">Axes and ticks<a class="headerlink" href="#axes-and-ticks" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Y axis</strong>: three labels — min, midpoint, and max of the observed luma, with 10 % padding on each side. For totally flat traces, the range is padded symmetrically so the line lands mid-plot.</li>
@@ -1943,6 +1989,8 @@
 <li>New dot on the same clip mid-sample — the tuple advanced to the new dot, so the old sample is dropped.</li>
 </ol>
 <p>The plot therefore always reflects the latest dropped dot or the most recent placeholder message, never a stale trace.</p>
+<h2 id="persistence">Persistence<a class="headerlink" href="#persistence" title="Permanent link">&para;</a></h2>
+<p>The probe dot's source-pixel coordinates are <strong>saved on each anchor</strong> at <code>Add Anchor</code> time as <code>probe_x</code> / <code>probe_y</code> (see <a href="../anchor-table/">§5.8 Anchor table</a> and <a href="../../6-project-files/json-schema/">§6.1 JSON schema</a>). The sampled luma values themselves are not persisted — only the coordinates. To re-render the trace later, double-click the <strong>Probe (x, y)</strong> cell in the anchor table; that re-drops the dot at the same pixel on whatever frame the camera is currently showing and a fresh ±120-frame sample runs.</p>
 
 
 
