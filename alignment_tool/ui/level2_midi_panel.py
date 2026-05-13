@@ -15,6 +15,7 @@ PIANO_HEIGHT = 40
 MIN_PITCH = 21  # A0
 MAX_PITCH = 108  # C8
 NUM_KEYS = MAX_PITCH - MIN_PITCH + 1
+LEFT_GUTTER = 30  # px reserved for vertical time-axis labels on the left edge
 
 # Colors
 BG_COLOR = QColor(30, 30, 35)
@@ -143,10 +144,10 @@ class MidiCanvasWidget(QWidget):
 
     def _pitch_to_x(self, pitch: int) -> tuple[float, float]:
         """Convert MIDI pitch to (x, width) in pixels."""
-        plot_width = self.width()
+        plot_width = max(0, self.width() - LEFT_GUTTER)
         key_width = plot_width / NUM_KEYS
         idx = pitch - MIN_PITCH
-        return idx * key_width, key_width
+        return LEFT_GUTTER + idx * key_width, key_width
 
     def _time_to_y(self, t: float) -> float:
         """Convert time to Y pixel. Current time is at playhead_frac from top."""
@@ -164,14 +165,16 @@ class MidiCanvasWidget(QWidget):
         if self._midi_info is None or self._note_data is None:
             return None
         canvas_height = self.height() - PIANO_HEIGHT
-        plot_width = self.width()
+        plot_width = self.width() - LEFT_GUTTER
         if canvas_height <= 0 or plot_width <= 0 or self._seconds_per_viewport <= 0:
             return None
         y = pos.y()
         if y < 0 or y >= canvas_height:
             return None
+        if pos.x() < LEFT_GUTTER:
+            return None
         key_width = plot_width / NUM_KEYS
-        pitch_click = MIN_PITCH + int(pos.x() / key_width)
+        pitch_click = MIN_PITCH + int((pos.x() - LEFT_GUTTER) / key_width)
         if pitch_click < MIN_PITCH or pitch_click > MAX_PITCH:
             return None
         pps = canvas_height / self._seconds_per_viewport
@@ -212,6 +215,10 @@ class MidiCanvasWidget(QWidget):
         elif self._seconds_per_viewport > 10:
             grid_interval = 1.0
 
+        # Opaque gutter so labels stay readable even if a note would otherwise
+        # paint into the leftmost column due to float-rounding.
+        painter.fillRect(0, 0, LEFT_GUTTER, canvas_height, BG_COLOR)
+
         painter.setPen(QPen(GRID_COLOR, 1))
         t_grid = int(t_bottom / grid_interval) * grid_interval
         font = QFont("monospace", 7)
@@ -220,7 +227,7 @@ class MidiCanvasWidget(QWidget):
             y = self._time_to_y(t_grid)
             if 0 <= y <= canvas_height:
                 painter.setPen(QPen(GRID_COLOR, 1))
-                painter.drawLine(0, int(y), self.width(), int(y))
+                painter.drawLine(LEFT_GUTTER, int(y), self.width(), int(y))
                 painter.setPen(QColor(100, 100, 100))
                 painter.drawText(2, int(y) - 2, f"{t_grid:.1f}s")
             t_grid += grid_interval
@@ -255,13 +262,15 @@ class MidiCanvasWidget(QWidget):
                 painter.setPen(QPen(color.darker(130), 1))
 
             note_rect = QRectF(x + 1, min(y_top, y_bottom), w - 2, abs(y_bottom - y_top))
-            note_rect = note_rect.intersected(QRectF(0, 0, self.width(), canvas_height))
+            note_rect = note_rect.intersected(
+                QRectF(LEFT_GUTTER, 0, self.width() - LEFT_GUTTER, canvas_height)
+            )
             if note_rect.height() > 0:
                 painter.drawRect(note_rect)
 
         # Draw playhead
         painter.setPen(QPen(PLAYHEAD_COLOR, 2))
-        painter.drawLine(0, int(playhead_y), self.width(), int(playhead_y))
+        painter.drawLine(LEFT_GUTTER, int(playhead_y), self.width(), int(playhead_y))
 
         # Draw piano keyboard at bottom
         self._draw_piano(painter, canvas_height)
